@@ -1,5 +1,4 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { IProject } from './Project';
 
 export interface IPrompt extends Document {
   projectId: mongoose.Types.ObjectId;

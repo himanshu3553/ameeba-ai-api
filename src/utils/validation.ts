@@ -11,7 +11,7 @@ export const validateObjectId = (id: string, fieldName: string = 'ID'): void => 
   }
 };
 
-export const validateProjectId = (req: Request, res: Response, next: NextFunction): void => {
+export const validateProjectId = (req: Request, _res: Response, next: NextFunction): void => {
   const { projectId } = req.params;
   if (projectId) {
     validateObjectId(projectId, 'Project ID');
@@ -19,7 +19,7 @@ export const validateProjectId = (req: Request, res: Response, next: NextFunctio
   next();
 };
 
-export const validatePromptId = (req: Request, res: Response, next: NextFunction): void => {
+export const validatePromptId = (req: Request, _res: Response, next: NextFunction): void => {
   const { id } = req.params;
   if (id) {
     validateObjectId(id, 'Prompt ID');

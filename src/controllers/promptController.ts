@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import Prompt, { IPrompt } from '../models/Prompt';
-import Project from '../models/Project';
 import { ApiError } from '../middleware/errorHandler';
 import { validateRequest, validateProjectExists } from '../utils/validation';
 

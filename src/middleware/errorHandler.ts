@@ -8,9 +8,9 @@ export interface ApiError extends Error {
 
 export const errorHandler = (
   err: ApiError,
-  req: Request,
+  _req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   let statusCode = err.statusCode || 500;
   let message = err.message || 'Internal Server Error';
@@ -53,7 +53,7 @@ export const errorHandler = (
 
 export const notFoundHandler = (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void => {
   const error: ApiError = new Error(`Route ${req.originalUrl} not found`);
