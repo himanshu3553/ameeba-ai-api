@@ -13,7 +13,10 @@ const router = Router();
 // All routes require valid ObjectId format
 router.param('id', validateProjectId);
 
-router.post('/', createProject);
+// POST /api/projects/create - Create a new project
+router.post('/create', createProject);
+
+// GET /api/projects - Get all projects
 router.get('/', getProjects);
 router.get('/:id', getProjectById);
 router.put('/:id', updateProject);

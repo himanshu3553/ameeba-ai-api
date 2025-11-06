@@ -4,9 +4,8 @@ import dotenv from 'dotenv';
 import { connectDB } from './config/database';
 import projectRoutes from './routes/projectRoutes';
 import promptRoutes from './routes/promptRoutes';
+import promptVersionRoutes from './routes/promptVersionRoutes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { requestLogger } from './middleware/requestLogger';
-import logger from './config/logger';
 
 // Load environment variables
 dotenv.config();
@@ -19,12 +18,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging middleware (should be after body parsing but before routes)
-app.use(requestLogger);
-
 // Routes
 app.use('/api/projects', projectRoutes);
 app.use('/api', promptRoutes);
+app.use('/api', promptVersionRoutes);
 
 // Root endpoint
 app.get('/', (_req, res) => {
@@ -58,24 +55,37 @@ const startServer = async (): Promise<void> => {
     await connectDB();
 
     // Start Express server
-    app.listen(PORT, () => {
-      logger.info(`Server is running on port ${PORT}`);
-      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    const server = app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    });
+
+    // Handle server errors
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Please either:`);
+        console.error(`  1. Stop the process using port ${PORT}`);
+        console.error(`  2. Set a different PORT in your .env file`);
+        console.error(`\nTo find and kill the process: lsof -ti:${PORT} | xargs kill -9`);
+      } else {
+        console.error('Server error:', error);
+      }
+      process.exit(1);
     });
   } catch (error) {
-    logger.error('Failed to start server:', error);
+    console.error('Failed to start server:', error);
     process.exit(1);
   }
 };
 
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
-  logger.info('SIGTERM signal received: closing HTTP server');
+  console.log('SIGTERM signal received: closing HTTP server');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  logger.info('SIGINT signal received: closing HTTP server');
+  console.log('SIGINT signal received: closing HTTP server');
   process.exit(0);
 });
 

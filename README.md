@@ -6,8 +6,9 @@ A production-ready Node.js API built with TypeScript, Express.js, and MongoDB (M
 
 - **Projects Management**: Create, read, update, and delete projects
 - **Prompts Management**: Create, read, update, and delete prompts under projects
-- **Active Prompt Enforcement**: Only one prompt can be active per project at a time
-- **Soft Delete**: Both projects and prompts support soft delete via `isActive` flag
+- **Prompt Versions Management**: Create multiple versions of the same prompt with version control
+- **Active Version Enforcement**: Only one version can be active per prompt at a time
+- **Soft Delete**: Projects, prompts, and prompt versions support soft delete via `isActive` flag
 - **Type Safety**: Full TypeScript implementation with strict type checking
 - **Error Handling**: Comprehensive error handling with consistent response format
 - **Validation**: Input validation for all endpoints
@@ -55,13 +56,13 @@ npm start
 
 The server will start on `http://localhost:3000` (or the port specified in your `.env` file).
 
-## API Endpoints
+## ****** API Endpoints ******
 
 ### Projects
 
 #### Create Project
 ```http
-POST /api/projects
+POST /api/projects/create
 Content-Type: application/json
 
 {
@@ -124,6 +125,8 @@ DELETE /api/projects/:id
 
 ### Prompts
 
+Prompts are containers for multiple versions. Each prompt has a name and can have multiple versions.
+
 #### Create Prompt
 ```http
 POST /api/projects/:projectId/prompts
@@ -131,28 +134,9 @@ Content-Type: application/json
 
 {
   "name": "First Sample Prompt",
-  "promptText": "Text sample for this prompt",
-  "activePrompt": true,
   "isActive": true
 }
 ```
-
-**Note:** If `activePrompt` is set to `true`, all other prompts in the same project will be automatically set to `activePrompt: false`.
-
-#### Get Prompts by Project
-```http
-GET /api/projects/:projectId/prompts
-```
-
-Query Parameters:
-- `includeInactive` (optional): Set to `true` to include inactive prompts
-
-#### Get Active Prompt
-```http
-GET /api/projects/:projectId/prompts/active
-```
-
-Fetches the prompt with `activePrompt: true` for the specified project. Returns 404 if no active prompt is found.
 
 **Response:**
 ```json
@@ -162,12 +146,36 @@ Fetches the prompt with `activePrompt: true` for the specified project. Returns 
     "_id": "...",
     "projectId": "...",
     "name": "First Sample Prompt",
-    "promptText": "Text sample for this prompt",
-    "activePrompt": true,
     "isActive": true,
     "createdAt": "...",
     "updatedAt": "..."
   }
+}
+```
+
+#### Get Prompts by Project
+```http
+GET /api/projects/:projectId/prompts
+```
+
+Query Parameters:
+- `includeInactive` (optional): Set to `true` to include inactive prompts
+
+**Response:**
+```json
+{
+  "success": true,
+  "count": 2,
+  "data": [
+    {
+      "_id": "...",
+      "projectId": "...",
+      "name": "First Sample Prompt",
+      "isActive": true,
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  ]
 }
 ```
 
@@ -183,17 +191,132 @@ Content-Type: application/json
 
 {
   "name": "Updated Prompt Name",
+  "isActive": true
+}
+```
+
+#### Delete Prompt (Soft Delete)
+```http
+DELETE /api/prompts/:id
+```
+
+### Prompt Versions
+
+Each prompt can have multiple versions. Only one version can be active (`activePrompt: true`) per prompt.
+
+#### Create Prompt Version
+```http
+POST /api/prompts/:promptId/versions
+Content-Type: application/json
+
+{
+  "promptText": "Text sample for this prompt version",
+  "activePrompt": true,
+  "isActive": true
+}
+```
+
+**Note:** If `activePrompt` is set to `true`, all other versions of the same prompt will be automatically set to `activePrompt: false`.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "...",
+    "promptId": "...",
+    "promptText": "Text sample for this prompt version",
+    "activePrompt": true,
+    "isActive": true,
+    "createdAt": "...",
+    "updatedAt": "..."
+  }
+}
+```
+
+#### Get Prompt Versions by Prompt
+```http
+GET /api/prompts/:promptId/versions
+```
+
+Query Parameters:
+- `includeInactive` (optional): Set to `true` to include inactive versions
+
+**Response:**
+```json
+{
+  "success": true,
+  "count": 3,
+  "data": [
+    {
+      "_id": "...",
+      "promptId": {
+        "_id": "...",
+        "name": "First Sample Prompt",
+        "projectId": "..."
+      },
+      "promptText": "Version 1 text",
+      "activePrompt": false,
+      "isActive": true,
+      "createdAt": "...",
+      "updatedAt": "..."
+    }
+  ]
+}
+```
+
+#### Get Active Prompt Version
+```http
+GET /api/prompts/:promptId/versions/active
+```
+
+Fetches the version with `activePrompt: true` for the specified prompt. Returns 404 if no active version is found.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "...",
+    "promptId": {
+      "_id": "...",
+      "name": "First Sample Prompt",
+      "projectId": {
+        "_id": "...",
+        "name": "Sample Project"
+      }
+    },
+    "promptText": "Active version text",
+    "activePrompt": true,
+    "isActive": true,
+    "createdAt": "...",
+    "updatedAt": "..."
+  }
+}
+```
+
+#### Get Prompt Version by ID
+```http
+GET /api/prompt-versions/:id
+```
+
+#### Update Prompt Version
+```http
+PUT /api/prompt-versions/:id
+Content-Type: application/json
+
+{
   "promptText": "Updated prompt text",
   "activePrompt": false,
   "isActive": true
 }
 ```
 
-**Note:** If `activePrompt` is set to `true`, all other prompts in the same project will be automatically set to `activePrompt: false`.
+**Note:** If `activePrompt` is set to `true`, all other versions of the same prompt will be automatically set to `activePrompt: false`.
 
-#### Delete Prompt (Soft Delete)
+#### Delete Prompt Version (Soft Delete)
 ```http
-DELETE /api/prompts/:id
+DELETE /api/prompt-versions/:id
 ```
 
 ### Health Check
@@ -218,8 +341,18 @@ GET /health
 {
   projectId: ObjectId;    // Required, reference to Project
   name: string;           // Required, 1-200 characters
+  isActive: boolean;      // Default: true (for soft delete)
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### PromptVersion
+```typescript
+{
+  promptId: ObjectId;     // Required, reference to Prompt
   promptText: string;     // Required, long form text
-  activePrompt: boolean;  // Default: false (only one true per project)
+  activePrompt: boolean;  // Default: false (only one true per prompt)
   isActive: boolean;      // Default: true (for soft delete)
   createdAt: Date;
   updatedAt: Date;
@@ -249,14 +382,19 @@ Common HTTP Status Codes:
 
 ## Business Logic
 
-1. **Active Prompt Uniqueness**: When a prompt is set with `activePrompt: true`, all other prompts in the same project are automatically set to `activePrompt: false`.
+1. **Hierarchical Structure**: 
+   - Projects contain multiple Prompts
+   - Prompts contain multiple Prompt Versions
+   - Structure: `Project → Prompt → PromptVersion`
 
-2. **Soft Delete**: Both projects and prompts use the `isActive` flag for soft deletion. Deleted items are filtered out by default in queries unless `includeInactive=true` is specified.
+2. **Active Version Uniqueness**: When a prompt version is set with `activePrompt: true`, all other versions of the same prompt are automatically set to `activePrompt: false`. Only one version can be active per prompt.
 
-3. **Validation**: 
+3. **Soft Delete**: Projects, prompts, and prompt versions use the `isActive` flag for soft deletion. Deleted items are filtered out by default in queries unless `includeInactive=true` is specified.
+
+4. **Validation**: 
    - Project names must be 1-200 characters
    - Prompt names must be 1-200 characters
-   - Prompt text is required and must be non-empty
+   - Prompt version text is required and must be non-empty
    - All IDs must be valid MongoDB ObjectIds
 
 ## Development

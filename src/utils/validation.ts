@@ -27,6 +27,14 @@ export const validatePromptId = (req: Request, _res: Response, next: NextFunctio
   next();
 };
 
+export const validatePromptVersionId = (req: Request, _res: Response, next: NextFunction): void => {
+  const { id } = req.params;
+  if (id) {
+    validateObjectId(id, 'Prompt Version ID');
+  }
+  next();
+};
+
 export const validateProjectExists = async (
   projectId: string
 ): Promise<void> => {

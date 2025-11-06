@@ -3,25 +3,6 @@ import Prompt, { IPrompt } from '../models/Prompt';
 import { ApiError } from '../middleware/errorHandler';
 import { validateRequest, validateProjectExists } from '../utils/validation';
 
-/**
- * Helper function to deactivate other prompts when setting activePrompt=true
- */
-const deactivateOtherPrompts = async (
-  projectId: string,
-  excludePromptId?: string
-): Promise<void> => {
-  const filter: { projectId: any; activePrompt: boolean; _id?: any } = {
-    projectId,
-    activePrompt: true,
-  };
-
-  if (excludePromptId) {
-    filter._id = { $ne: excludePromptId };
-  }
-
-  await Prompt.updateMany(filter, { $set: { activePrompt: false } });
-};
-
 export const createPrompt = async (
   req: Request,
   res: Response,
@@ -29,23 +10,16 @@ export const createPrompt = async (
 ): Promise<void> => {
   try {
     const { projectId } = req.params;
-    const { name, promptText, activePrompt, isActive } = req.body;
+    const { name, isActive } = req.body;
 
     // Validate project exists and is active
     await validateProjectExists(projectId);
 
-    validateRequest({ name, promptText, activePrompt, isActive });
-
-    // If setting activePrompt=true, deactivate other prompts in the project
-    if (activePrompt === true) {
-      await deactivateOtherPrompts(projectId);
-    }
+    validateRequest({ name, isActive });
 
     const prompt: IPrompt = new Prompt({
       projectId,
       name: name.trim(),
-      promptText: promptText.trim(),
-      activePrompt: activePrompt !== undefined ? activePrompt : false,
       isActive: isActive !== undefined ? isActive : true,
     });
 
@@ -91,38 +65,8 @@ export const getPromptsByProject = async (
   }
 };
 
-export const getActivePrompt = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { projectId } = req.params;
-
-    // Validate project exists and is active
-    await validateProjectExists(projectId);
-
-    // Find the active prompt for this project
-    const prompt = await Prompt.findOne({
-      projectId,
-      activePrompt: true,
-      isActive: true,
-    }).populate('projectId', 'name');
-
-    if (!prompt) {
-      const error: ApiError = new Error('No active prompt found for this project');
-      error.statusCode = 404;
-      throw error;
-    }
-
-    res.status(200).json({
-      success: true,
-      data: prompt,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+// Note: getActivePrompt removed - active prompt logic is now handled at the version level
+// Use PromptVersion endpoints to get active versions
 
 export const getPromptById = async (
   req: Request,
@@ -162,7 +106,7 @@ export const updatePrompt = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, promptText, activePrompt, isActive } = req.body;
+    const { name, isActive } = req.body;
 
     const prompt = await Prompt.findById(id);
 
@@ -174,29 +118,12 @@ export const updatePrompt = async (
 
     const updateData: {
       name?: string;
-      promptText?: string;
-      activePrompt?: boolean;
       isActive?: boolean;
     } = {};
 
     if (name !== undefined) {
       validateRequest({ name });
       updateData.name = name.trim();
-    }
-
-    if (promptText !== undefined) {
-      validateRequest({ promptText });
-      updateData.promptText = promptText.trim();
-    }
-
-    if (activePrompt !== undefined) {
-      validateRequest({ activePrompt });
-      updateData.activePrompt = activePrompt;
-
-      // If setting activePrompt=true, deactivate other prompts in the same project
-      if (activePrompt === true) {
-        await deactivateOtherPrompts(prompt.projectId.toString(), id);
-      }
     }
 
     if (isActive !== undefined) {
