@@ -3,6 +3,8 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IPromptVersion extends Document {
   promptId: mongoose.Types.ObjectId;
   promptText: string;
+  version: string;
+  versionName: string;
   activePrompt: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -21,6 +23,16 @@ const PromptVersionSchema: Schema = new Schema(
       required: [true, 'Prompt text is required'],
       trim: true,
       minlength: [1, 'Prompt text must be at least 1 character'],
+    },
+    version: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    versionName: {
+      type: String,
+      required: true,
+      trim: true,
     },
     activePrompt: {
       type: Boolean,

@@ -56,6 +56,14 @@ export const createPromptVersion = async (
 
     validateRequest({ promptText, activePrompt, isActive });
 
+    // Count existing versions for this prompt (including inactive ones to maintain sequence)
+    const existingVersionsCount = await PromptVersion.countDocuments({ promptId });
+
+    // Calculate next version number (v1, v2, v3, etc.)
+    const nextVersionNumber = existingVersionsCount + 1;
+    const version = `v${nextVersionNumber}`;
+    const versionName = `Version ${nextVersionNumber}`;
+
     // If setting activePrompt=true, deactivate other versions of the same prompt
     if (activePrompt === true) {
       await deactivateOtherVersions(promptId);
@@ -64,6 +72,8 @@ export const createPromptVersion = async (
     const promptVersion: IPromptVersion = new PromptVersion({
       promptId,
       promptText: promptText.trim(),
+      version,
+      versionName,
       activePrompt: activePrompt !== undefined ? activePrompt : false,
       isActive: isActive !== undefined ? isActive : true,
     });
