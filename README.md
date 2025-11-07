@@ -35,11 +35,26 @@ npm install
 3. Create a `.env` file in the root directory:
 ```env
 PORT=3000
-MONGODB_URI=mongodb://localhost:27017/ameeba-ai
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net?retryWrites=true&w=majority
+DATABASE_NAME=ameeba_database
 NODE_ENV=development
 ```
 
-4. Make sure MongoDB is running on your system.
+**Note:** 
+- Replace `username`, `password`, and `cluster` with your MongoDB Atlas credentials
+- The `DATABASE_NAME` environment variable specifies which database to use (defaults to `ameeba_database` if not set)
+- The database name in `MONGODB_URI` will be ignored; the `DATABASE_NAME` value will be used instead
+
+**For MongoDB Atlas:**
+- Get your connection string from MongoDB Atlas dashboard
+- Format: `mongodb+srv://<username>:<password>@<cluster>.mongodb.net/ameeba_database?retryWrites=true&w=majority`
+- Make sure your IP address is whitelisted in MongoDB Atlas Network Access settings
+
+**For Local MongoDB:**
+```env
+MONGODB_URI=mongodb://localhost:27017
+DATABASE_NAME=ameeba_database
+```
 
 ## Running the Application
 
