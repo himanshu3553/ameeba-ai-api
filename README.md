@@ -77,7 +77,7 @@ The server will start on `http://localhost:3000` (or the port specified in your 
 
 #### Create Project
 ```http
-POST /api/projects/create
+POST /api/project/create
 Content-Type: application/json
 
 {
@@ -102,7 +102,7 @@ Content-Type: application/json
 
 #### Get All Projects
 ```http
-GET /api/projects
+GET /api/project/getProjects
 ```
 
 Query Parameters:
@@ -119,12 +119,12 @@ Query Parameters:
 
 #### Get Project by ID
 ```http
-GET /api/projects/:id
+GET /api/project/:id
 ```
 
 #### Update Project
 ```http
-PUT /api/projects/:id
+PUT /api/project/:id
 Content-Type: application/json
 
 {
@@ -135,7 +135,7 @@ Content-Type: application/json
 
 #### Delete Project (Soft Delete)
 ```http
-DELETE /api/projects/:id
+DELETE /api/project/:id
 ```
 
 ### Prompts
@@ -144,7 +144,7 @@ Prompts are containers for multiple versions. Each prompt has a name and can hav
 
 #### Create Prompt
 ```http
-POST /api/projects/:projectId/prompts
+POST /api/projects/:projectId/prompt/create
 Content-Type: application/json
 
 {
@@ -173,8 +173,7 @@ Content-Type: application/json
 GET /api/projects/:projectId/prompts
 ```
 
-Query Parameters:
-- `includeInactive` (optional): Set to `true` to include inactive prompts
+**Note:** This endpoint only returns prompts with `isActive: true`.
 
 **Response:**
 ```json
@@ -196,12 +195,12 @@ Query Parameters:
 
 #### Get Prompt by ID
 ```http
-GET /api/prompts/:id
+GET /api/prompt/:id
 ```
 
 #### Update Prompt
 ```http
-PUT /api/prompts/:id
+PUT /api/prompt/:id
 Content-Type: application/json
 
 {
@@ -212,7 +211,7 @@ Content-Type: application/json
 
 #### Delete Prompt (Soft Delete)
 ```http
-DELETE /api/prompts/:id
+DELETE /api/prompt/:id
 ```
 
 ### Prompt Versions
@@ -221,7 +220,7 @@ Each prompt can have multiple versions. Only one version can be active (`activeP
 
 #### Create Prompt Version
 ```http
-POST /api/prompts/:promptId/versions
+POST /api/prompts/:promptId/version/create
 Content-Type: application/json
 
 {
@@ -254,8 +253,7 @@ Content-Type: application/json
 GET /api/prompts/:promptId/versions
 ```
 
-Query Parameters:
-- `includeInactive` (optional): Set to `true` to include inactive versions
+**Note:** This endpoint only returns prompt versions with `isActive: true`.
 
 **Response:**
 ```json
@@ -282,10 +280,10 @@ Query Parameters:
 
 #### Get Active Prompt Version
 ```http
-GET /api/prompts/:promptId/versions/active
+GET /api/prompts/:promptId/active
 ```
 
-Fetches the version with `activePrompt: true` for the specified prompt. Returns 404 if no active version is found.
+Fetches the version with both `isActive: true` and `activePrompt: true` for the specified prompt. Returns 404 if no active version is found.
 
 **Response:**
 ```json

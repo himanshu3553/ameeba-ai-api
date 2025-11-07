@@ -19,7 +19,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api/projects', projectRoutes);
+app.use('/api/project', projectRoutes); // All project operations
 app.use('/api', promptRoutes);
 app.use('/api', promptVersionRoutes);
 

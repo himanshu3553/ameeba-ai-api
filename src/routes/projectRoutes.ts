@@ -13,13 +13,19 @@ const router = Router();
 // All routes require valid ObjectId format
 router.param('id', validateProjectId);
 
-// POST /api/projects/create - Create a new project
+// GET /api/project/getProjects - Get all projects
+router.get('/getProjects', getProjects);
+
+// POST /api/project/create - Create a new project
 router.post('/create', createProject);
 
-// GET /api/projects - Get all projects
-router.get('/', getProjects);
+// GET /api/project/:id - Get a project by ID
 router.get('/:id', getProjectById);
+
+// PUT /api/project/:id - Update a project by ID
 router.put('/:id', updateProject);
+
+// DELETE /api/project/:id - Soft delete a project by ID
 router.delete('/:id', deleteProject);
 
 export default router;

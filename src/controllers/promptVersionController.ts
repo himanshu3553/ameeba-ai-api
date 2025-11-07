@@ -86,17 +86,15 @@ export const getPromptVersionsByPrompt = async (
 ): Promise<void> => {
   try {
     const { promptId } = req.params;
-    const { includeInactive } = req.query;
 
     // Validate prompt exists
     await validatePromptExists(promptId);
 
-    const filter: { promptId: any; isActive?: boolean } = { promptId };
-
-    // Only include active versions by default
-    if (includeInactive !== 'true') {
-      filter.isActive = true;
-    }
+    // Only return active prompt versions
+    const filter: { promptId: any; isActive: boolean } = {
+      promptId,
+      isActive: true,
+    };
 
     const versions = await PromptVersion.find(filter)
       .populate({

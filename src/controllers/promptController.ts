@@ -41,17 +41,15 @@ export const getPromptsByProject = async (
 ): Promise<void> => {
   try {
     const { projectId } = req.params;
-    const { includeInactive } = req.query;
 
     // Validate project exists
     await validateProjectExists(projectId);
 
-    const filter: { projectId: any; isActive?: boolean } = { projectId };
-
-    // Only include active prompts by default
-    if (includeInactive !== 'true') {
-      filter.isActive = true;
-    }
+    // Only return active prompts
+    const filter: { projectId: any; isActive: boolean } = {
+      projectId,
+      isActive: true,
+    };
 
     const prompts = await Prompt.find(filter).sort({ createdAt: -1 });
 
