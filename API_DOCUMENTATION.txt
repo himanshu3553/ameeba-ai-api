@@ -1,0 +1,726 @@
+================================================================================
+                        API DOCUMENTATION
+================================================================================
+
+Base URL: http://localhost:3000 (or your server URL)
+
+All endpoints return JSON responses with the following structure:
+- Success: { success: true, data: {...}, ... }
+- Error: { success: false, message: "...", ... }
+
+All IDs in path parameters must be valid MongoDB ObjectIds.
+
+================================================================================
+                            ROOT ENDPOINTS
+================================================================================
+
+1. GET /
+   Description: Root endpoint to check server status
+   
+   Request:
+   - Method: GET
+   - Path: /
+   - Headers: None
+   - Body: None
+   
+   Response (200 OK):
+   {
+     "success": true,
+     "message": "Server is properly deployed and running",
+     "status": "operational",
+     "timestamp": "2024-01-01T00:00:00.000Z",
+     "environment": "development",
+     "version": "1.0.0"
+   }
+
+
+2. GET /health
+   Description: Health check endpoint
+   
+   Request:
+   - Method: GET
+   - Path: /health
+   - Headers: None
+   - Body: None
+   
+   Response (200 OK):
+   {
+     "success": true,
+     "message": "API is running",
+     "timestamp": "2024-01-01T00:00:00.000Z"
+   }
+
+
+================================================================================
+                            PROJECT ENDPOINTS
+================================================================================
+
+3. GET /api/project/getProjects
+   Description: Get all projects (active by default)
+   
+   Request:
+   - Method: GET
+   - Path: /api/project/getProjects
+   - Query Parameters:
+     * includeInactive (optional): "true" to include inactive projects
+   - Headers: None
+   - Body: None
+   
+   Response (200 OK):
+   {
+     "success": true,
+     "count": 2,
+     "data": [
+       {
+         "_id": "507f1f77bcf86cd799439011",
+         "name": "Project Name",
+         "isActive": true,
+         "createdAt": "2024-01-01T00:00:00.000Z",
+         "updatedAt": "2024-01-01T00:00:00.000Z"
+       }
+     ]
+   }
+
+
+4. POST /api/project/create
+   Description: Create a new project
+   
+   Request:
+   - Method: POST
+   - Path: /api/project/create
+   - Headers:
+     * Content-Type: application/json
+   - Body (JSON):
+     {
+       "name": "Project Name",        // Required, string, 1-200 characters
+       "isActive": true               // Optional, boolean, defaults to true
+     }
+   
+   Response (201 Created):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439011",
+       "name": "Project Name",
+       "isActive": true,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Missing or invalid fields
+   - 500 Internal Server Error: Server error
+
+
+5. GET /api/project/:id
+   Description: Get a project by ID
+   
+   Request:
+   - Method: GET
+   - Path: /api/project/:id
+   - Path Parameters:
+     * id: Project ID (MongoDB ObjectId)
+   - Headers: None
+   - Body: None
+   
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439011",
+       "name": "Project Name",
+       "isActive": true,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format
+   - 404 Not Found: Project not found or deleted
+
+
+6. PUT /api/project/:id
+   Description: Update a project by ID
+   
+   Request:
+   - Method: PUT
+   - Path: /api/project/:id
+   - Path Parameters:
+     * id: Project ID (MongoDB ObjectId)
+   - Headers:
+     * Content-Type: application/json
+   - Body (JSON):
+     {
+       "name": "Updated Project Name",  // Optional, string, 1-200 characters
+       "isActive": false                // Optional, boolean
+     }
+     Note: At least one field must be provided
+   
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439011",
+       "name": "Updated Project Name",
+       "isActive": false,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format, invalid fields, or no fields to update
+   - 404 Not Found: Project not found
+
+
+7. DELETE /api/project/:id
+   Description: Soft delete a project (sets isActive to false)
+   
+   Request:
+   - Method: DELETE
+   - Path: /api/project/:id
+   - Path Parameters:
+     * id: Project ID (MongoDB ObjectId)
+   - Headers: None
+   - Body: None
+   
+   Response (200 OK):
+   {
+     "success": true,
+     "message": "Project deleted successfully",
+     "data": {
+       "_id": "507f1f77bcf86cd799439011",
+       "name": "Project Name",
+       "isActive": false,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format
+   - 404 Not Found: Project not found
+
+
+================================================================================
+                            PROMPT ENDPOINTS
+================================================================================
+
+8. POST /api/projects/:projectId/prompt/create
+   Description: Create a new prompt under a project
+   
+   Request:
+   - Method: POST
+   - Path: /api/projects/:projectId/prompt/create
+   - Path Parameters:
+     * projectId: Project ID (MongoDB ObjectId)
+   - Headers:
+     * Content-Type: application/json
+   - Body (JSON):
+     {
+       "name": "Prompt Name",          // Required, string, 1-200 characters
+       "isActive": true                // Optional, boolean, defaults to true
+     }
+   
+   Response (201 Created):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439012",
+       "projectId": "507f1f77bcf86cd799439011",
+       "name": "Prompt Name",
+       "isActive": true,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format, missing or invalid fields
+   - 404 Not Found: Project not found or deleted
+   - 500 Internal Server Error: Server error
+
+
+9. GET /api/projects/:projectId/prompts
+   Description: Get all active prompts for a project
+   
+   Request:
+   - Method: GET
+   - Path: /api/projects/:projectId/prompts
+   - Path Parameters:
+     * projectId: Project ID (MongoDB ObjectId)
+   - Headers: None
+   - Body: None
+   
+   Response (200 OK):
+   {
+     "success": true,
+     "count": 2,
+     "data": [
+       {
+         "_id": "507f1f77bcf86cd799439012",
+         "projectId": "507f1f77bcf86cd799439011",
+         "name": "Prompt Name",
+         "isActive": true,
+         "createdAt": "2024-01-01T00:00:00.000Z",
+         "updatedAt": "2024-01-01T00:00:00.000Z"
+       }
+     ]
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format
+   - 404 Not Found: Project not found or deleted
+
+
+10. GET /api/prompt/:id
+    Description: Get a prompt by ID
+    
+    Request:
+    - Method: GET
+    - Path: /api/prompt/:id
+    - Path Parameters:
+      * id: Prompt ID (MongoDB ObjectId)
+    - Headers: None
+    - Body: None
+    
+    Response (200 OK):
+    {
+      "success": true,
+      "data": {
+        "_id": "507f1f77bcf86cd799439012",
+        "projectId": {
+          "_id": "507f1f77bcf86cd799439011",
+          "name": "Project Name"
+        },
+        "name": "Prompt Name",
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    }
+    
+    Error Responses:
+    - 400 Bad Request: Invalid ObjectId format
+    - 404 Not Found: Prompt not found or deleted
+
+
+11. PUT /api/prompt/:id
+    Description: Update a prompt by ID
+    
+    Request:
+    - Method: PUT
+    - Path: /api/prompt/:id
+    - Path Parameters:
+      * id: Prompt ID (MongoDB ObjectId)
+    - Headers:
+      * Content-Type: application/json
+    - Body (JSON):
+      {
+        "name": "Updated Prompt Name",  // Optional, string, 1-200 characters
+        "isActive": false               // Optional, boolean
+      }
+      Note: At least one field must be provided
+    
+    Response (200 OK):
+    {
+      "success": true,
+      "data": {
+        "_id": "507f1f77bcf86cd799439012",
+        "projectId": {
+          "_id": "507f1f77bcf86cd799439011",
+          "name": "Project Name"
+        },
+        "name": "Updated Prompt Name",
+        "isActive": false,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    }
+    
+    Error Responses:
+    - 400 Bad Request: Invalid ObjectId format, invalid fields, or no fields to update
+    - 404 Not Found: Prompt not found
+
+
+12. DELETE /api/prompt/:id
+    Description: Soft delete a prompt (sets isActive to false)
+    
+    Request:
+    - Method: DELETE
+    - Path: /api/prompt/:id
+    - Path Parameters:
+      * id: Prompt ID (MongoDB ObjectId)
+    - Headers: None
+    - Body: None
+    
+    Response (200 OK):
+    {
+      "success": true,
+      "message": "Prompt deleted successfully",
+      "data": {
+        "_id": "507f1f77bcf86cd799439012",
+        "projectId": "507f1f77bcf86cd799439011",
+        "name": "Prompt Name",
+        "isActive": false,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    }
+    
+    Error Responses:
+    - 400 Bad Request: Invalid ObjectId format
+    - 404 Not Found: Prompt not found
+
+
+================================================================================
+                        PROMPT VERSION ENDPOINTS
+================================================================================
+
+13. POST /api/prompts/:promptId/version/create
+    Description: Create a new prompt version under a prompt
+    
+    Request:
+    - Method: POST
+    - Path: /api/prompts/:promptId/version/create
+    - Path Parameters:
+      * promptId: Prompt ID (MongoDB ObjectId)
+    - Headers:
+      * Content-Type: application/json
+    - Body (JSON):
+      {
+        "promptText": "Your prompt text here",  // Required, string, min 1 character
+        "activePrompt": false,                   // Optional, boolean, defaults to false
+        "isActive": true                         // Optional, boolean, defaults to true
+      }
+      Note: If activePrompt is set to true, all other versions of this prompt will be deactivated
+    
+    Response (201 Created):
+    {
+      "success": true,
+      "data": {
+        "_id": "507f1f77bcf86cd799439013",
+        "promptId": "507f1f77bcf86cd799439012",
+        "promptText": "Your prompt text here",
+        "version": "v1",
+        "versionName": "Version 1",
+        "activePrompt": false,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    }
+    
+    Error Responses:
+    - 400 Bad Request: Invalid ObjectId format, missing or invalid fields
+    - 404 Not Found: Prompt not found or deleted
+    - 500 Internal Server Error: Server error
+
+
+14. GET /api/prompts/:promptId/active
+    Description: Get the active prompt version for a prompt (isActive: true and activePrompt: true)
+    
+    Request:
+    - Method: GET
+    - Path: /api/prompts/:promptId/active
+    - Path Parameters:
+      * promptId: Prompt ID (MongoDB ObjectId)
+    - Headers: None
+    - Body: None
+    
+    Response (200 OK):
+    {
+      "success": true,
+      "data": {
+        "_id": "507f1f77bcf86cd799439013",
+        "promptId": {
+          "_id": "507f1f77bcf86cd799439012",
+          "name": "Prompt Name",
+          "projectId": {
+            "_id": "507f1f77bcf86cd799439011",
+            "name": "Project Name"
+          }
+        },
+        "promptText": "Your prompt text here",
+        "version": "v1",
+        "versionName": "Version 1",
+        "activePrompt": true,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    }
+    
+    Error Responses:
+    - 400 Bad Request: Invalid ObjectId format
+    - 404 Not Found: Prompt not found, deleted, or no active version found
+
+
+15. GET /api/prompts/:promptId/versions
+    Description: Get all active prompt versions for a prompt
+    
+    Request:
+    - Method: GET
+    - Path: /api/prompts/:promptId/versions
+    - Path Parameters:
+      * promptId: Prompt ID (MongoDB ObjectId)
+    - Headers: None
+    - Body: None
+    
+    Response (200 OK):
+    {
+      "success": true,
+      "count": 2,
+      "data": [
+        {
+          "_id": "507f1f77bcf86cd799439013",
+          "promptId": {
+            "_id": "507f1f77bcf86cd799439012",
+            "name": "Prompt Name",
+            "projectId": {
+              "_id": "507f1f77bcf86cd799439011",
+              "name": "Project Name"
+            }
+          },
+          "promptText": "Your prompt text here",
+          "version": "v1",
+          "versionName": "Version 1",
+          "activePrompt": true,
+          "isActive": true,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "updatedAt": "2024-01-01T00:00:00.000Z"
+        }
+      ]
+    }
+    
+    Error Responses:
+    - 400 Bad Request: Invalid ObjectId format
+    - 404 Not Found: Prompt not found or deleted
+
+
+16. GET /api/prompt-versions/:id
+    Description: Get a prompt version by ID
+    
+    Request:
+    - Method: GET
+    - Path: /api/prompt-versions/:id
+    - Path Parameters:
+      * id: Prompt Version ID (MongoDB ObjectId)
+    - Headers: None
+    - Body: None
+    
+    Response (200 OK):
+    {
+      "success": true,
+      "data": {
+        "_id": "507f1f77bcf86cd799439013",
+        "promptId": {
+          "_id": "507f1f77bcf86cd799439012",
+          "name": "Prompt Name",
+          "projectId": {
+            "_id": "507f1f77bcf86cd799439011",
+            "name": "Project Name"
+          }
+        },
+        "promptText": "Your prompt text here",
+        "version": "v1",
+        "versionName": "Version 1",
+        "activePrompt": true,
+        "isActive": true,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    }
+    
+    Error Responses:
+    - 400 Bad Request: Invalid ObjectId format
+    - 404 Not Found: Prompt version not found or deleted
+
+
+17. PUT /api/prompt-versions/:id
+    Description: Update a prompt version by ID
+    
+    Request:
+    - Method: PUT
+    - Path: /api/prompt-versions/:id
+    - Path Parameters:
+      * id: Prompt Version ID (MongoDB ObjectId)
+    - Headers:
+      * Content-Type: application/json
+    - Body (JSON):
+      {
+        "promptText": "Updated prompt text",  // Optional, string, min 1 character
+        "activePrompt": true,                  // Optional, boolean
+        "isActive": false                      // Optional, boolean
+      }
+      Note: 
+      - At least one field must be provided
+      - If activePrompt is set to true, all other versions of the same prompt will be deactivated
+    
+    Response (200 OK):
+    {
+      "success": true,
+      "data": {
+        "_id": "507f1f77bcf86cd799439013",
+        "promptId": {
+          "_id": "507f1f77bcf86cd799439012",
+          "name": "Prompt Name",
+          "projectId": {
+            "_id": "507f1f77bcf86cd799439011",
+            "name": "Project Name"
+          }
+        },
+        "promptText": "Updated prompt text",
+        "version": "v1",
+        "versionName": "Version 1",
+        "activePrompt": true,
+        "isActive": false,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    }
+    
+    Error Responses:
+    - 400 Bad Request: Invalid ObjectId format, invalid fields, or no fields to update
+    - 404 Not Found: Prompt version not found
+
+
+18. DELETE /api/prompt-versions/:id
+    Description: Soft delete a prompt version (sets isActive to false)
+    
+    Request:
+    - Method: DELETE
+    - Path: /api/prompt-versions/:id
+    - Path Parameters:
+      * id: Prompt Version ID (MongoDB ObjectId)
+    - Headers: None
+    - Body: None
+    
+    Response (200 OK):
+    {
+      "success": true,
+      "message": "Prompt version deleted successfully",
+      "data": {
+        "_id": "507f1f77bcf86cd799439013",
+        "promptId": "507f1f77bcf86cd799439012",
+        "promptText": "Your prompt text here",
+        "version": "v1",
+        "versionName": "Version 1",
+        "activePrompt": true,
+        "isActive": false,
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z"
+      }
+    }
+    
+    Error Responses:
+    - 400 Bad Request: Invalid ObjectId format
+    - 404 Not Found: Prompt version not found
+
+
+================================================================================
+                            DATA MODELS
+================================================================================
+
+Project Model:
+{
+  "_id": ObjectId,              // Auto-generated MongoDB ID
+  "name": String,               // Required, 1-200 characters, trimmed
+  "isActive": Boolean,          // Default: true
+  "createdAt": Date,           // Auto-generated timestamp
+  "updatedAt": Date            // Auto-generated timestamp
+}
+
+Prompt Model:
+{
+  "_id": ObjectId,              // Auto-generated MongoDB ID
+  "projectId": ObjectId,        // Required, references Project
+  "name": String,               // Required, 1-200 characters, trimmed
+  "isActive": Boolean,          // Default: true
+  "createdAt": Date,           // Auto-generated timestamp
+  "updatedAt": Date            // Auto-generated timestamp
+}
+
+PromptVersion Model:
+{
+  "_id": ObjectId,              // Auto-generated MongoDB ID
+  "promptId": ObjectId,         // Required, references Prompt
+  "promptText": String,         // Required, min 1 character, trimmed
+  "version": String,            // Auto-generated (v1, v2, v3, etc.)
+  "versionName": String,        // Auto-generated (Version 1, Version 2, etc.)
+  "activePrompt": Boolean,      // Default: false (only one can be true per prompt)
+  "isActive": Boolean,          // Default: true
+  "createdAt": Date,           // Auto-generated timestamp
+  "updatedAt": Date            // Auto-generated timestamp
+}
+
+
+================================================================================
+                            ERROR RESPONSES
+================================================================================
+
+All error responses follow this structure:
+{
+  "success": false,
+  "message": "Error message description",
+  ... (additional error details if available)
+}
+
+Common HTTP Status Codes:
+- 200 OK: Successful request
+- 201 Created: Resource created successfully
+- 400 Bad Request: Invalid input, missing required fields, or validation error
+- 404 Not Found: Resource not found or has been deleted
+- 500 Internal Server Error: Server-side error
+
+Common Error Messages:
+- "Project not found"
+- "Project has been deleted"
+- "Prompt not found"
+- "Prompt has been deleted"
+- "Prompt version not found"
+- "Prompt version has been deleted"
+- "No active version found for this prompt"
+- "No valid fields to update"
+- "Invalid ObjectId format"
+- "Project name is required"
+- "Prompt name is required"
+- "Prompt text is required"
+
+
+================================================================================
+                            NOTES
+================================================================================
+
+1. All IDs in path parameters must be valid MongoDB ObjectIds (24 hex characters).
+
+2. Soft Delete: DELETE operations set isActive to false instead of removing records.
+
+3. Active Prompt Logic: Only one prompt version can have activePrompt=true per prompt.
+   Setting activePrompt=true on a version automatically deactivates other versions.
+
+4. Version Numbering: Prompt versions are automatically numbered (v1, v2, v3, etc.)
+   based on the count of existing versions for that prompt.
+
+5. Default Filters: 
+   - GET operations for lists return only active records (isActive: true) by default.
+   - Projects list can include inactive projects with ?includeInactive=true query parameter.
+
+6. Populated Fields: Some GET endpoints populate related documents:
+   - Prompt details include project information
+   - Prompt version details include prompt and project information
+
+7. Timestamps: All models include createdAt and updatedAt timestamps automatically.
+
+8. Validation:
+   - String fields are trimmed automatically
+   - Required fields must be provided
+   - Field length constraints are enforced
+   - Boolean fields must be valid boolean values
+
+================================================================================
+                            END OF DOCUMENTATION
+================================================================================
+
