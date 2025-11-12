@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPromptVersion extends Document {
+  userId: mongoose.Types.ObjectId;
   promptId: mongoose.Types.ObjectId;
   promptText: string;
   version: string;
@@ -13,6 +14,11 @@ export interface IPromptVersion extends Document {
 
 const PromptVersionSchema: Schema = new Schema(
   {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'User ID is required'],
+    },
     promptId: {
       type: Schema.Types.ObjectId,
       ref: 'Prompt',
@@ -55,7 +61,10 @@ PromptVersionSchema.index(
   { unique: true, partialFilterExpression: { activePrompt: true } }
 );
 
-// Index for better query performance
+// Indexes for better query performance
+PromptVersionSchema.index({ userId: 1, promptId: 1, isActive: 1 });
+PromptVersionSchema.index({ userId: 1, isActive: 1 });
+PromptVersionSchema.index({ userId: 1 });
 PromptVersionSchema.index({ promptId: 1, isActive: 1 });
 PromptVersionSchema.index({ isActive: 1 });
 

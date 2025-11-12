@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPrompt extends Document {
+  userId: mongoose.Types.ObjectId;
   projectId: mongoose.Types.ObjectId;
   name: string;
   isActive: boolean;
@@ -10,6 +11,11 @@ export interface IPrompt extends Document {
 
 const PromptSchema: Schema = new Schema(
   {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'User ID is required'],
+    },
     projectId: {
       type: Schema.Types.ObjectId,
       ref: 'Project',
@@ -32,7 +38,10 @@ const PromptSchema: Schema = new Schema(
   }
 );
 
-// Index for better query performance
+// Indexes for better query performance
+PromptSchema.index({ userId: 1, projectId: 1, isActive: 1 });
+PromptSchema.index({ userId: 1, isActive: 1 });
+PromptSchema.index({ userId: 1 });
 PromptSchema.index({ projectId: 1, isActive: 1 });
 PromptSchema.index({ isActive: 1 });
 

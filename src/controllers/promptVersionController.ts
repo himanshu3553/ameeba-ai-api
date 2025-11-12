@@ -9,12 +9,17 @@ import { validateRequest } from '../utils/validation';
  */
 const deactivateOtherVersions = async (
   promptId: string,
-  excludeVersionId?: string
+  excludeVersionId?: string,
+  userId?: string
 ): Promise<void> => {
-  const filter: { promptId: any; activePrompt: boolean; _id?: any } = {
+  const filter: { promptId: any; activePrompt: boolean; _id?: any; userId?: any } = {
     promptId,
     activePrompt: true,
   };
+
+  if (userId) {
+    filter.userId = userId;
+  }
 
   if (excludeVersionId) {
     filter._id = { $ne: excludeVersionId };
@@ -24,10 +29,18 @@ const deactivateOtherVersions = async (
 };
 
 /**
- * Validate that prompt exists and is active
+ * Validate that prompt exists, is active, and belongs to user
  */
-const validatePromptExists = async (promptId: string): Promise<void> => {
-  const prompt = await Prompt.findById(promptId);
+const validatePromptExists = async (promptId: string, userId?: string): Promise<void> => {
+  const filter: { _id: any; isActive?: boolean; userId?: any } = {
+    _id: promptId,
+  };
+
+  if (userId) {
+    filter.userId = userId;
+  }
+
+  const prompt = await Prompt.findOne(filter);
 
   if (!prompt) {
     const error: ApiError = new Error('Prompt not found');
@@ -48,16 +61,25 @@ export const createPromptVersion = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { promptId } = req.params;
     const { promptText, activePrompt, isActive } = req.body;
 
-    // Validate prompt exists and is active
-    await validatePromptExists(promptId);
+    // Validate prompt exists, is active, and belongs to user
+    await validatePromptExists(promptId, req.user.userId);
 
     validateRequest({ promptText, activePrompt, isActive });
 
     // Count existing versions for this prompt (including inactive ones to maintain sequence)
-    const existingVersionsCount = await PromptVersion.countDocuments({ promptId });
+    const existingVersionsCount = await PromptVersion.countDocuments({
+      promptId,
+      userId: req.user.userId,
+    });
 
     // Calculate next version number (v1, v2, v3, etc.)
     const nextVersionNumber = existingVersionsCount + 1;
@@ -66,10 +88,11 @@ export const createPromptVersion = async (
 
     // If setting activePrompt=true, deactivate other versions of the same prompt
     if (activePrompt === true) {
-      await deactivateOtherVersions(promptId);
+      await deactivateOtherVersions(promptId, undefined, req.user.userId);
     }
 
     const promptVersion: IPromptVersion = new PromptVersion({
+      userId: req.user.userId,
       promptId,
       promptText: promptText.trim(),
       version,
@@ -95,13 +118,20 @@ export const getPromptVersionsByPrompt = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { promptId } = req.params;
 
-    // Validate prompt exists
-    await validatePromptExists(promptId);
+    // Validate prompt exists and belongs to user
+    await validatePromptExists(promptId, req.user.userId);
 
-    // Only return active prompt versions
-    const filter: { promptId: any; isActive: boolean } = {
+    // Only return active prompt versions for this user
+    const filter: { userId: any; promptId: any; isActive: boolean } = {
+      userId: req.user.userId,
       promptId,
       isActive: true,
     };
@@ -135,10 +165,10 @@ export const getActivePromptVersion = async (
   try {
     const { promptId } = req.params;
 
-    // Validate prompt exists and is active
+    // Validate prompt exists and is active (no userId check - public endpoint)
     await validatePromptExists(promptId);
 
-    // Find the active version for this prompt
+    // Find the active version for this prompt (no userId filter - public endpoint)
     const version = await PromptVersion.findOne({
       promptId,
       activePrompt: true,
@@ -174,9 +204,18 @@ export const getPromptVersionById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { id } = req.params;
 
-    const version = await PromptVersion.findById(id)
+    const version = await PromptVersion.findOne({
+      _id: id,
+      userId: req.user.userId,
+    })
       .populate({
         path: 'promptId',
         select: 'name projectId',
@@ -213,12 +252,22 @@ export const updatePromptVersion = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { id } = req.params;
     const { promptText, activePrompt, isActive } = req.body;
 
-    const version = await PromptVersion.findById(id);
+    // First verify the version exists and belongs to the user
+    const existingVersion = await PromptVersion.findOne({
+      _id: id,
+      userId: req.user.userId,
+    });
 
-    if (!version) {
+    if (!existingVersion) {
       const error: ApiError = new Error('Prompt version not found');
       error.statusCode = 404;
       throw error;
@@ -241,7 +290,11 @@ export const updatePromptVersion = async (
 
       // If setting activePrompt=true, deactivate other versions of the same prompt
       if (activePrompt === true) {
-        await deactivateOtherVersions(version.promptId.toString(), id);
+        await deactivateOtherVersions(
+          existingVersion.promptId.toString(),
+          id,
+          req.user.userId
+        );
       }
     }
 
@@ -256,8 +309,8 @@ export const updatePromptVersion = async (
       throw error;
     }
 
-    const updatedVersion = await PromptVersion.findByIdAndUpdate(
-      id,
+    const updatedVersion = await PromptVersion.findOneAndUpdate(
+      { _id: id, userId: req.user.userId },
       { $set: updateData },
       { new: true, runValidators: true }
     )
@@ -269,6 +322,12 @@ export const updatePromptVersion = async (
           select: 'name',
         },
       });
+
+    if (!updatedVersion) {
+      const error: ApiError = new Error('Prompt version not found');
+      error.statusCode = 404;
+      throw error;
+    }
 
     res.status(200).json({
       success: true,
@@ -285,10 +344,16 @@ export const deletePromptVersion = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { id } = req.params;
 
-    const version = await PromptVersion.findByIdAndUpdate(
-      id,
+    const version = await PromptVersion.findOneAndUpdate(
+      { _id: id, userId: req.user.userId },
       { $set: { isActive: false } },
       { new: true }
     );

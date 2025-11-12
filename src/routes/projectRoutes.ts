@@ -7,8 +7,12 @@ import {
   deleteProject,
 } from '../controllers/projectController';
 import { validateProjectId } from '../utils/validation';
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
+
+// All routes require authentication
+router.use(authenticate);
 
 // All routes require valid ObjectId format
 router.param('id', validateProjectId);

@@ -2,9 +2,12 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/database';
+import authRoutes from './routes/authRoutes';
 import projectRoutes from './routes/projectRoutes';
 import promptRoutes from './routes/promptRoutes';
 import promptVersionRoutes from './routes/promptVersionRoutes';
+import { getActivePromptVersion } from './controllers/promptVersionController';
+import { validatePromptId } from './utils/validation';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 // Load environment variables
@@ -19,6 +22,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
+app.use('/api/auth', authRoutes); // Authentication routes (signup, login, getUserDetails)
+
+// Public route (no authentication required) - MUST be before other /api routes
+app.get('/api/prompts/:promptId/active', validatePromptId, getActivePromptVersion);
+
 app.use('/api/project', projectRoutes); // All project operations
 app.use('/api', promptRoutes);
 app.use('/api', promptVersionRoutes);

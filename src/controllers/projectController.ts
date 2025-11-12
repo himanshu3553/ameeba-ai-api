@@ -9,11 +9,18 @@ export const createProject = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { name, isActive } = req.body;
 
     validateRequest({ name, isActive });
 
     const project: IProject = new Project({
+      userId: req.user.userId,
       name: name.trim(),
       isActive: isActive !== undefined ? isActive : true,
     });
@@ -35,8 +42,16 @@ export const getProjects = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { includeInactive } = req.query;
-    const filter: { isActive?: boolean } = {};
+    const filter: { userId: any; isActive?: boolean } = {
+      userId: req.user.userId,
+    };
 
     // Only include active projects by default
     if (includeInactive !== 'true') {
@@ -61,9 +76,18 @@ export const getProjectById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { id } = req.params;
 
-    const project = await Project.findById(id);
+    const project = await Project.findOne({
+      _id: id,
+      userId: req.user.userId,
+    });
 
     if (!project) {
       const error: ApiError = new Error('Project not found');
@@ -92,8 +116,26 @@ export const updateProject = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { id } = req.params;
     const { name, isActive } = req.body;
+
+    // First verify the project exists and belongs to the user
+    const existingProject = await Project.findOne({
+      _id: id,
+      userId: req.user.userId,
+    });
+
+    if (!existingProject) {
+      const error: ApiError = new Error('Project not found');
+      error.statusCode = 404;
+      throw error;
+    }
 
     const updateData: { name?: string; isActive?: boolean } = {};
 
@@ -113,8 +155,8 @@ export const updateProject = async (
       throw error;
     }
 
-    const project = await Project.findByIdAndUpdate(
-      id,
+    const project = await Project.findOneAndUpdate(
+      { _id: id, userId: req.user.userId },
       { $set: updateData },
       { new: true, runValidators: true }
     );
@@ -140,10 +182,16 @@ export const deleteProject = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { id } = req.params;
 
-    const project = await Project.findByIdAndUpdate(
-      id,
+    const project = await Project.findOneAndUpdate(
+      { _id: id, userId: req.user.userId },
       { $set: { isActive: false } },
       { new: true }
     );

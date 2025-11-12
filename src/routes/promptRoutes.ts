@@ -7,8 +7,12 @@ import {
   deletePrompt,
 } from '../controllers/promptController';
 import { validateProjectId, validatePromptId } from '../utils/validation';
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
+
+// All routes require authentication
+router.use(authenticate);
 
 // All routes require valid ObjectId format
 router.param('projectId', validateProjectId);

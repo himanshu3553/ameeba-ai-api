@@ -10,6 +10,120 @@ All endpoints return JSON responses with the following structure:
 
 All IDs in path parameters must be valid MongoDB ObjectIds.
 
+**IMPORTANT - Authentication Required:**
+- Most endpoints require authentication via JWT token
+- Include token in Authorization header: `Authorization: Bearer <your-token>`
+- Get token by signing up or logging in (see Authentication section below)
+- Public endpoints: signup, login, root (/), health check, GET /api/prompts/:promptId/active
+
+================================================================================
+                        AUTHENTICATION ENDPOINTS
+================================================================================
+
+1. POST /api/auth/signup
+   Description: Create a new user account
+   
+   Request:
+   - Method: POST
+   - Path: /api/auth/signup
+   - Headers:
+     * Content-Type: application/json
+   - Body (JSON):
+     {
+       "email": "user@example.com",     // Required, valid email format
+       "password": "password123",        // Required, minimum 6 characters
+       "name": "John Doe"                // Optional, max 200 characters
+     }
+   
+   Response (201 Created):
+   {
+     "success": true,
+     "data": {
+       "user": {
+         "_id": "507f1f77bcf86cd799439011",
+         "email": "user@example.com",
+         "name": "John Doe",
+         "isActive": true,
+         "createdAt": "2024-01-01T00:00:00.000Z"
+       },
+       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid email format, password too short, or email already exists
+   - 500 Internal Server Error: Server error
+   
+   Note: Save the token from response for authenticated requests
+
+
+2. POST /api/auth/login
+   Description: Login with email and password
+   
+   Request:
+   - Method: POST
+   - Path: /api/auth/login
+   - Headers:
+     * Content-Type: application/json
+   - Body (JSON):
+     {
+       "email": "user@example.com",
+       "password": "password123"
+     }
+   
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "user": {
+         "_id": "507f1f77bcf86cd799439011",
+         "email": "user@example.com",
+         "name": "John Doe",
+         "isActive": true,
+         "createdAt": "2024-01-01T00:00:00.000Z"
+       },
+       "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Missing or invalid fields
+   - 401 Unauthorized: Invalid email or password
+   - 403 Forbidden: Account has been deactivated
+   
+   Note: Save the token from response for authenticated requests
+
+
+3. GET /api/auth/getUserDetails
+   Description: Get current authenticated user details
+   
+   Request:
+   - Method: GET
+   - Path: /api/auth/getUserDetails
+   - Headers:
+     * Authorization: Bearer <token> (Required)
+     * Content-Type: application/json
+   - Body: None
+   
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439011",
+       "email": "user@example.com",
+       "name": "John Doe",
+       "isActive": true,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 401 Unauthorized: Missing or invalid token
+   - 403 Forbidden: Account has been deactivated
+   - 404 Not Found: User not found
+
+
 ================================================================================
                             ROOT ENDPOINTS
 ================================================================================
@@ -55,16 +169,20 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
                             PROJECT ENDPOINTS
 ================================================================================
 
-3. GET /api/project/getProjects
-   Description: Get all projects (active by default)
+4. GET /api/project/getProjects
+   Description: Get all projects for the authenticated user (active by default)
    
    Request:
    - Method: GET
    - Path: /api/project/getProjects
    - Query Parameters:
      * includeInactive (optional): "true" to include inactive projects
-   - Headers: None
+   - Headers:
+     * Authorization: Bearer <token> (Required)
+     * Content-Type: application/json
    - Body: None
+   
+   Note: Only returns projects owned by the authenticated user
    
    Response (200 OK):
    {
@@ -73,6 +191,7 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
      "data": [
        {
          "_id": "507f1f77bcf86cd799439011",
+         "userId": "507f1f77bcf86cd799439010",
          "name": "Project Name",
          "isActive": true,
          "createdAt": "2024-01-01T00:00:00.000Z",
@@ -80,15 +199,19 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
        }
      ]
    }
+   
+   Error Responses:
+   - 401 Unauthorized: Missing or invalid token
 
 
-4. POST /api/project/create
-   Description: Create a new project
+5. POST /api/project/create
+   Description: Create a new project for the authenticated user
    
    Request:
    - Method: POST
    - Path: /api/project/create
    - Headers:
+     * Authorization: Bearer <token> (Required)
      * Content-Type: application/json
    - Body (JSON):
      {
@@ -96,11 +219,14 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
        "isActive": true               // Optional, boolean, defaults to true
      }
    
+   Note: userId is automatically set from authenticated user
+   
    Response (201 Created):
    {
      "success": true,
      "data": {
        "_id": "507f1f77bcf86cd799439011",
+       "userId": "507f1f77bcf86cd799439010",
        "name": "Project Name",
        "isActive": true,
        "createdAt": "2024-01-01T00:00:00.000Z",
@@ -110,25 +236,31 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
    
    Error Responses:
    - 400 Bad Request: Missing or invalid fields
+   - 401 Unauthorized: Missing or invalid token
    - 500 Internal Server Error: Server error
 
 
-5. GET /api/project/:id
-   Description: Get a project by ID
+6. GET /api/project/:id
+   Description: Get a project by ID (must belong to authenticated user)
    
    Request:
    - Method: GET
    - Path: /api/project/:id
    - Path Parameters:
      * id: Project ID (MongoDB ObjectId)
-   - Headers: None
+   - Headers:
+     * Authorization: Bearer <token> (Required)
+     * Content-Type: application/json
    - Body: None
+   
+   Note: Only returns project if it belongs to the authenticated user
    
    Response (200 OK):
    {
      "success": true,
      "data": {
        "_id": "507f1f77bcf86cd799439011",
+       "userId": "507f1f77bcf86cd799439010",
        "name": "Project Name",
        "isActive": true,
        "createdAt": "2024-01-01T00:00:00.000Z",
@@ -138,11 +270,12 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
    
    Error Responses:
    - 400 Bad Request: Invalid ObjectId format
-   - 404 Not Found: Project not found or deleted
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Project not found, deleted, or does not belong to authenticated user
 
 
-6. PUT /api/project/:id
-   Description: Update a project by ID
+7. PUT /api/project/:id
+   Description: Update a project by ID (must belong to authenticated user)
    
    Request:
    - Method: PUT
@@ -150,6 +283,7 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
    - Path Parameters:
      * id: Project ID (MongoDB ObjectId)
    - Headers:
+     * Authorization: Bearer <token> (Required)
      * Content-Type: application/json
    - Body (JSON):
      {
@@ -163,6 +297,7 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
      "success": true,
      "data": {
        "_id": "507f1f77bcf86cd799439011",
+       "userId": "507f1f77bcf86cd799439010",
        "name": "Updated Project Name",
        "isActive": false,
        "createdAt": "2024-01-01T00:00:00.000Z",
@@ -172,18 +307,21 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
    
    Error Responses:
    - 400 Bad Request: Invalid ObjectId format, invalid fields, or no fields to update
-   - 404 Not Found: Project not found
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Project not found or does not belong to authenticated user
 
 
-7. DELETE /api/project/:id
-   Description: Soft delete a project (sets isActive to false)
+8. DELETE /api/project/:id
+   Description: Soft delete a project (sets isActive to false) - must belong to authenticated user
    
    Request:
    - Method: DELETE
    - Path: /api/project/:id
    - Path Parameters:
      * id: Project ID (MongoDB ObjectId)
-   - Headers: None
+   - Headers:
+     * Authorization: Bearer <token> (Required)
+     * Content-Type: application/json
    - Body: None
    
    Response (200 OK):
@@ -192,6 +330,7 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
      "message": "Project deleted successfully",
      "data": {
        "_id": "507f1f77bcf86cd799439011",
+       "userId": "507f1f77bcf86cd799439010",
        "name": "Project Name",
        "isActive": false,
        "createdAt": "2024-01-01T00:00:00.000Z",
@@ -201,24 +340,29 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
    
    Error Responses:
    - 400 Bad Request: Invalid ObjectId format
-   - 404 Not Found: Project not found
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Project not found or does not belong to authenticated user
 
 
 ================================================================================
                             PROMPT ENDPOINTS
 ================================================================================
 
-8. POST /api/projects/:projectId/prompt/create
-   Description: Create a new prompt under a project
+9. POST /api/projects/:projectId/prompt/create
+   Description: Create a new prompt under a project (project must belong to authenticated user)
    
    Request:
    - Method: POST
    - Path: /api/projects/:projectId/prompt/create
    - Path Parameters:
      * projectId: Project ID (MongoDB ObjectId)
-   - Headers:
-     * Content-Type: application/json
-   - Body (JSON):
+    - Headers:
+      * Authorization: Bearer <token> (Required)
+      * Content-Type: application/json
+    
+    Note: userId is automatically set from authenticated user
+    
+    - Body (JSON):
      {
        "name": "Prompt Name",          // Required, string, 1-200 characters
        "isActive": true                // Optional, boolean, defaults to true
@@ -229,6 +373,7 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
      "success": true,
      "data": {
        "_id": "507f1f77bcf86cd799439012",
+       "userId": "507f1f77bcf86cd799439010",
        "projectId": "507f1f77bcf86cd799439011",
        "name": "Prompt Name",
        "isActive": true,
@@ -239,20 +384,23 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
    
    Error Responses:
    - 400 Bad Request: Invalid ObjectId format, missing or invalid fields
-   - 404 Not Found: Project not found or deleted
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Project not found, deleted, or does not belong to authenticated user
    - 500 Internal Server Error: Server error
 
 
-9. GET /api/projects/:projectId/prompts
-   Description: Get all active prompts for a project
-   
-   Request:
-   - Method: GET
-   - Path: /api/projects/:projectId/prompts
-   - Path Parameters:
-     * projectId: Project ID (MongoDB ObjectId)
-   - Headers: None
-   - Body: None
+10. GET /api/projects/:projectId/prompts
+    Description: Get all active prompts for a project (project must belong to authenticated user)
+    
+    Request:
+    - Method: GET
+    - Path: /api/projects/:projectId/prompts
+    - Path Parameters:
+      * projectId: Project ID (MongoDB ObjectId)
+    - Headers:
+      * Authorization: Bearer <token> (Required)
+      * Content-Type: application/json
+    - Body: None
    
    Response (200 OK):
    {
@@ -261,6 +409,7 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
      "data": [
        {
          "_id": "507f1f77bcf86cd799439012",
+         "userId": "507f1f77bcf86cd799439010",
          "projectId": "507f1f77bcf86cd799439011",
          "name": "Prompt Name",
          "isActive": true,
@@ -272,43 +421,48 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
    
    Error Responses:
    - 400 Bad Request: Invalid ObjectId format
-   - 404 Not Found: Project not found or deleted
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Project not found, deleted, or does not belong to authenticated user
 
 
-10. GET /api/prompt/:id
-    Description: Get a prompt by ID
+11. GET /api/prompt/:id
+    Description: Get a prompt by ID (must belong to authenticated user)
     
     Request:
     - Method: GET
     - Path: /api/prompt/:id
     - Path Parameters:
       * id: Prompt ID (MongoDB ObjectId)
-    - Headers: None
+    - Headers:
+      * Authorization: Bearer <token> (Required)
+      * Content-Type: application/json
     - Body: None
     
-    Response (200 OK):
-    {
-      "success": true,
-      "data": {
-        "_id": "507f1f77bcf86cd799439012",
-        "projectId": {
-          "_id": "507f1f77bcf86cd799439011",
-          "name": "Project Name"
-        },
-        "name": "Prompt Name",
-        "isActive": true,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      }
-    }
-    
-    Error Responses:
-    - 400 Bad Request: Invalid ObjectId format
-    - 404 Not Found: Prompt not found or deleted
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439012",
+       "userId": "507f1f77bcf86cd799439010",
+       "projectId": {
+         "_id": "507f1f77bcf86cd799439011",
+         "name": "Project Name"
+       },
+       "name": "Prompt Name",
+       "isActive": true,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Prompt not found, deleted, or does not belong to authenticated user
 
 
-11. PUT /api/prompt/:id
-    Description: Update a prompt by ID
+12. PUT /api/prompt/:id
+    Description: Update a prompt by ID (must belong to authenticated user)
     
     Request:
     - Method: PUT
@@ -316,6 +470,7 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
     - Path Parameters:
       * id: Prompt ID (MongoDB ObjectId)
     - Headers:
+      * Authorization: Bearer <token> (Required)
       * Content-Type: application/json
     - Body (JSON):
       {
@@ -324,63 +479,69 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
       }
       Note: At least one field must be provided
     
-    Response (200 OK):
-    {
-      "success": true,
-      "data": {
-        "_id": "507f1f77bcf86cd799439012",
-        "projectId": {
-          "_id": "507f1f77bcf86cd799439011",
-          "name": "Project Name"
-        },
-        "name": "Updated Prompt Name",
-        "isActive": false,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      }
-    }
-    
-    Error Responses:
-    - 400 Bad Request: Invalid ObjectId format, invalid fields, or no fields to update
-    - 404 Not Found: Prompt not found
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439012",
+       "userId": "507f1f77bcf86cd799439010",
+       "projectId": {
+         "_id": "507f1f77bcf86cd799439011",
+         "name": "Project Name"
+       },
+       "name": "Updated Prompt Name",
+       "isActive": false,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format, invalid fields, or no fields to update
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Prompt not found or does not belong to authenticated user
 
 
-12. DELETE /api/prompt/:id
-    Description: Soft delete a prompt (sets isActive to false)
+13. DELETE /api/prompt/:id
+    Description: Soft delete a prompt (sets isActive to false) - must belong to authenticated user
     
     Request:
     - Method: DELETE
     - Path: /api/prompt/:id
     - Path Parameters:
       * id: Prompt ID (MongoDB ObjectId)
-    - Headers: None
+    - Headers:
+      * Authorization: Bearer <token> (Required)
+      * Content-Type: application/json
     - Body: None
     
     Response (200 OK):
-    {
-      "success": true,
-      "message": "Prompt deleted successfully",
-      "data": {
-        "_id": "507f1f77bcf86cd799439012",
-        "projectId": "507f1f77bcf86cd799439011",
-        "name": "Prompt Name",
-        "isActive": false,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      }
-    }
-    
-    Error Responses:
-    - 400 Bad Request: Invalid ObjectId format
-    - 404 Not Found: Prompt not found
+   {
+     "success": true,
+     "message": "Prompt deleted successfully",
+     "data": {
+       "_id": "507f1f77bcf86cd799439012",
+       "userId": "507f1f77bcf86cd799439010",
+       "projectId": "507f1f77bcf86cd799439011",
+       "name": "Prompt Name",
+       "isActive": false,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Prompt not found or does not belong to authenticated user
 
 
 ================================================================================
                         PROMPT VERSION ENDPOINTS
 ================================================================================
 
-13. POST /api/prompts/:promptId/version/create
-    Description: Create a new prompt version under a prompt
+14. POST /api/prompts/:promptId/version/create
+    Description: Create a new prompt version under a prompt (prompt must belong to authenticated user)
     
     Request:
     - Method: POST
@@ -388,7 +549,11 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
     - Path Parameters:
       * promptId: Prompt ID (MongoDB ObjectId)
     - Headers:
+      * Authorization: Bearer <token> (Required)
       * Content-Type: application/json
+    
+    Note: userId is automatically set from authenticated user
+    
     - Body (JSON):
       {
         "promptText": "Your prompt text here",  // Required, string, min 1 character
@@ -397,150 +562,164 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
       }
       Note: If activePrompt is set to true, all other versions of this prompt will be deactivated
     
-    Response (201 Created):
-    {
-      "success": true,
-      "data": {
-        "_id": "507f1f77bcf86cd799439013",
-        "promptId": "507f1f77bcf86cd799439012",
-        "promptText": "Your prompt text here",
-        "version": "v1",
-        "versionName": "Version 1",
-        "activePrompt": false,
-        "isActive": true,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      }
-    }
-    
-    Error Responses:
-    - 400 Bad Request: Invalid ObjectId format, missing or invalid fields
-    - 404 Not Found: Prompt not found or deleted
-    - 500 Internal Server Error: Server error
+   Response (201 Created):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439013",
+       "userId": "507f1f77bcf86cd799439010",
+       "promptId": "507f1f77bcf86cd799439012",
+       "promptText": "Your prompt text here",
+       "version": "v1",
+       "versionName": "Version 1",
+       "activePrompt": false,
+       "isActive": true,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format, missing or invalid fields
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Prompt not found, deleted, or does not belong to authenticated user
+   - 500 Internal Server Error: Server error
 
 
-14. GET /api/prompts/:promptId/active
-    Description: Get the active prompt version for a prompt (isActive: true and activePrompt: true)
+15. GET /api/prompts/:promptId/active
+    Description: Get the active prompt version for a prompt (PUBLIC ENDPOINT - no authentication required)
     
     Request:
     - Method: GET
     - Path: /api/prompts/:promptId/active
     - Path Parameters:
       * promptId: Prompt ID (MongoDB ObjectId)
-    - Headers: None
+    - Headers:
+      * Content-Type: application/json (Optional)
     - Body: None
     
-    Response (200 OK):
-    {
-      "success": true,
-      "data": {
-        "_id": "507f1f77bcf86cd799439013",
-        "promptId": {
-          "_id": "507f1f77bcf86cd799439012",
-          "name": "Prompt Name",
-          "projectId": {
-            "_id": "507f1f77bcf86cd799439011",
-            "name": "Project Name"
-          }
-        },
-        "promptText": "Your prompt text here",
-        "version": "v1",
-        "versionName": "Version 1",
-        "activePrompt": true,
-        "isActive": true,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      }
-    }
+    Note: This is a public endpoint and does not require authentication. Returns the active version for any valid prompt.
     
-    Error Responses:
-    - 400 Bad Request: Invalid ObjectId format
-    - 404 Not Found: Prompt not found, deleted, or no active version found
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439013",
+       "userId": "507f1f77bcf86cd799439010",
+       "promptId": {
+         "_id": "507f1f77bcf86cd799439012",
+         "name": "Prompt Name",
+         "projectId": {
+           "_id": "507f1f77bcf86cd799439011",
+           "name": "Project Name"
+         }
+       },
+       "promptText": "Your prompt text here",
+       "version": "v1",
+       "versionName": "Version 1",
+       "activePrompt": true,
+       "isActive": true,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format
+   - 404 Not Found: Prompt not found, deleted, or no active version found
 
 
-15. GET /api/prompts/:promptId/versions
-    Description: Get all active prompt versions for a prompt
+16. GET /api/prompts/:promptId/versions
+    Description: Get all active prompt versions for a prompt (prompt must belong to authenticated user)
     
     Request:
     - Method: GET
     - Path: /api/prompts/:promptId/versions
     - Path Parameters:
       * promptId: Prompt ID (MongoDB ObjectId)
-    - Headers: None
+    - Headers:
+      * Authorization: Bearer <token> (Required)
+      * Content-Type: application/json
     - Body: None
     
-    Response (200 OK):
-    {
-      "success": true,
-      "count": 2,
-      "data": [
-        {
-          "_id": "507f1f77bcf86cd799439013",
-          "promptId": {
-            "_id": "507f1f77bcf86cd799439012",
-            "name": "Prompt Name",
-            "projectId": {
-              "_id": "507f1f77bcf86cd799439011",
-              "name": "Project Name"
-            }
-          },
-          "promptText": "Your prompt text here",
-          "version": "v1",
-          "versionName": "Version 1",
-          "activePrompt": true,
-          "isActive": true,
-          "createdAt": "2024-01-01T00:00:00.000Z",
-          "updatedAt": "2024-01-01T00:00:00.000Z"
-        }
-      ]
-    }
-    
-    Error Responses:
-    - 400 Bad Request: Invalid ObjectId format
-    - 404 Not Found: Prompt not found or deleted
+   Response (200 OK):
+   {
+     "success": true,
+     "count": 2,
+     "data": [
+       {
+         "_id": "507f1f77bcf86cd799439013",
+         "userId": "507f1f77bcf86cd799439010",
+         "promptId": {
+           "_id": "507f1f77bcf86cd799439012",
+           "name": "Prompt Name",
+           "projectId": {
+             "_id": "507f1f77bcf86cd799439011",
+             "name": "Project Name"
+           }
+         },
+         "promptText": "Your prompt text here",
+         "version": "v1",
+         "versionName": "Version 1",
+         "activePrompt": true,
+         "isActive": true,
+         "createdAt": "2024-01-01T00:00:00.000Z",
+         "updatedAt": "2024-01-01T00:00:00.000Z"
+       }
+     ]
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Prompt not found, deleted, or does not belong to authenticated user
 
 
-16. GET /api/prompt-versions/:id
-    Description: Get a prompt version by ID
+17. GET /api/prompt-versions/:id
+    Description: Get a prompt version by ID (must belong to authenticated user)
     
     Request:
     - Method: GET
     - Path: /api/prompt-versions/:id
     - Path Parameters:
       * id: Prompt Version ID (MongoDB ObjectId)
-    - Headers: None
+    - Headers:
+      * Authorization: Bearer <token> (Required)
+      * Content-Type: application/json
     - Body: None
     
-    Response (200 OK):
-    {
-      "success": true,
-      "data": {
-        "_id": "507f1f77bcf86cd799439013",
-        "promptId": {
-          "_id": "507f1f77bcf86cd799439012",
-          "name": "Prompt Name",
-          "projectId": {
-            "_id": "507f1f77bcf86cd799439011",
-            "name": "Project Name"
-          }
-        },
-        "promptText": "Your prompt text here",
-        "version": "v1",
-        "versionName": "Version 1",
-        "activePrompt": true,
-        "isActive": true,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      }
-    }
-    
-    Error Responses:
-    - 400 Bad Request: Invalid ObjectId format
-    - 404 Not Found: Prompt version not found or deleted
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439013",
+       "userId": "507f1f77bcf86cd799439010",
+       "promptId": {
+         "_id": "507f1f77bcf86cd799439012",
+         "name": "Prompt Name",
+         "projectId": {
+           "_id": "507f1f77bcf86cd799439011",
+           "name": "Project Name"
+         }
+       },
+       "promptText": "Your prompt text here",
+       "version": "v1",
+       "versionName": "Version 1",
+       "activePrompt": true,
+       "isActive": true,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Prompt version not found, deleted, or does not belong to authenticated user
 
 
-17. PUT /api/prompt-versions/:id
-    Description: Update a prompt version by ID
+18. PUT /api/prompt-versions/:id
+    Description: Update a prompt version by ID (must belong to authenticated user)
     
     Request:
     - Method: PUT
@@ -548,6 +727,7 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
     - Path Parameters:
       * id: Prompt Version ID (MongoDB ObjectId)
     - Headers:
+      * Authorization: Bearer <token> (Required)
       * Content-Type: application/json
     - Body (JSON):
       {
@@ -559,83 +739,102 @@ All IDs in path parameters must be valid MongoDB ObjectIds.
       - At least one field must be provided
       - If activePrompt is set to true, all other versions of the same prompt will be deactivated
     
-    Response (200 OK):
-    {
-      "success": true,
-      "data": {
-        "_id": "507f1f77bcf86cd799439013",
-        "promptId": {
-          "_id": "507f1f77bcf86cd799439012",
-          "name": "Prompt Name",
-          "projectId": {
-            "_id": "507f1f77bcf86cd799439011",
-            "name": "Project Name"
-          }
-        },
-        "promptText": "Updated prompt text",
-        "version": "v1",
-        "versionName": "Version 1",
-        "activePrompt": true,
-        "isActive": false,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      }
-    }
-    
-    Error Responses:
-    - 400 Bad Request: Invalid ObjectId format, invalid fields, or no fields to update
-    - 404 Not Found: Prompt version not found
+   Response (200 OK):
+   {
+     "success": true,
+     "data": {
+       "_id": "507f1f77bcf86cd799439013",
+       "userId": "507f1f77bcf86cd799439010",
+       "promptId": {
+         "_id": "507f1f77bcf86cd799439012",
+         "name": "Prompt Name",
+         "projectId": {
+           "_id": "507f1f77bcf86cd799439011",
+           "name": "Project Name"
+         }
+       },
+       "promptText": "Updated prompt text",
+       "version": "v1",
+       "versionName": "Version 1",
+       "activePrompt": true,
+       "isActive": false,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format, invalid fields, or no fields to update
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Prompt version not found or does not belong to authenticated user
 
 
-18. DELETE /api/prompt-versions/:id
-    Description: Soft delete a prompt version (sets isActive to false)
+19. DELETE /api/prompt-versions/:id
+    Description: Soft delete a prompt version (sets isActive to false) - must belong to authenticated user
     
     Request:
     - Method: DELETE
     - Path: /api/prompt-versions/:id
     - Path Parameters:
       * id: Prompt Version ID (MongoDB ObjectId)
-    - Headers: None
+    - Headers:
+      * Authorization: Bearer <token> (Required)
+      * Content-Type: application/json
     - Body: None
     
-    Response (200 OK):
-    {
-      "success": true,
-      "message": "Prompt version deleted successfully",
-      "data": {
-        "_id": "507f1f77bcf86cd799439013",
-        "promptId": "507f1f77bcf86cd799439012",
-        "promptText": "Your prompt text here",
-        "version": "v1",
-        "versionName": "Version 1",
-        "activePrompt": true,
-        "isActive": false,
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "updatedAt": "2024-01-01T00:00:00.000Z"
-      }
-    }
-    
-    Error Responses:
-    - 400 Bad Request: Invalid ObjectId format
-    - 404 Not Found: Prompt version not found
+   Response (200 OK):
+   {
+     "success": true,
+     "message": "Prompt version deleted successfully",
+     "data": {
+       "_id": "507f1f77bcf86cd799439013",
+       "userId": "507f1f77bcf86cd799439010",
+       "promptId": "507f1f77bcf86cd799439012",
+       "promptText": "Your prompt text here",
+       "version": "v1",
+       "versionName": "Version 1",
+       "activePrompt": true,
+       "isActive": false,
+       "createdAt": "2024-01-01T00:00:00.000Z",
+       "updatedAt": "2024-01-01T00:00:00.000Z"
+     }
+   }
+   
+   Error Responses:
+   - 400 Bad Request: Invalid ObjectId format
+   - 401 Unauthorized: Missing or invalid token
+   - 404 Not Found: Prompt version not found or does not belong to authenticated user
 
 
 ================================================================================
                             DATA MODELS
 ================================================================================
 
+User Model:
+{
+  "_id": ObjectId,              // Auto-generated MongoDB ID
+  "email": String,               // Required, unique, lowercase, validated
+  "password": String,            // Required, hashed with bcrypt, min 6 characters
+  "name": String,                // Optional, max 200 characters
+  "isActive": Boolean,           // Default: true
+  "createdAt": Date,            // Auto-generated timestamp
+  "updatedAt": Date             // Auto-generated timestamp
+}
+
 Project Model:
 {
   "_id": ObjectId,              // Auto-generated MongoDB ID
-  "name": String,               // Required, 1-200 characters, trimmed
-  "isActive": Boolean,          // Default: true
-  "createdAt": Date,           // Auto-generated timestamp
-  "updatedAt": Date            // Auto-generated timestamp
+  "userId": ObjectId,            // Required, references User
+  "name": String,                // Required, 1-200 characters, trimmed
+  "isActive": Boolean,           // Default: true
+  "createdAt": Date,            // Auto-generated timestamp
+  "updatedAt": Date             // Auto-generated timestamp
 }
 
 Prompt Model:
 {
   "_id": ObjectId,              // Auto-generated MongoDB ID
+  "userId": ObjectId,            // Required, references User
   "projectId": ObjectId,        // Required, references Project
   "name": String,               // Required, 1-200 characters, trimmed
   "isActive": Boolean,          // Default: true
@@ -646,6 +845,7 @@ Prompt Model:
 PromptVersion Model:
 {
   "_id": ObjectId,              // Auto-generated MongoDB ID
+  "userId": ObjectId,            // Required, references User
   "promptId": ObjectId,         // Required, references Prompt
   "promptText": String,         // Required, min 1 character, trimmed
   "version": String,            // Auto-generated (v1, v2, v3, etc.)
@@ -672,15 +872,21 @@ Common HTTP Status Codes:
 - 200 OK: Successful request
 - 201 Created: Resource created successfully
 - 400 Bad Request: Invalid input, missing required fields, or validation error
-- 404 Not Found: Resource not found or has been deleted
+- 401 Unauthorized: Missing or invalid authentication token
+- 404 Not Found: Resource not found, deleted, or does not belong to authenticated user
+  (Note: For security, 404 is returned even if resource exists but belongs to another user)
 - 500 Internal Server Error: Server-side error
 
 Common Error Messages:
-- "Project not found"
+- "Authentication required. Please provide a valid token."
+- "User not authenticated"
+- "Invalid email or password"
+- "Account has been deactivated"
+- "Project not found" (also returned if project belongs to another user)
 - "Project has been deleted"
-- "Prompt not found"
+- "Prompt not found" (also returned if prompt belongs to another user)
 - "Prompt has been deleted"
-- "Prompt version not found"
+- "Prompt version not found" (also returned if version belongs to another user)
 - "Prompt version has been deleted"
 - "No active version found for this prompt"
 - "No valid fields to update"
@@ -688,37 +894,57 @@ Common Error Messages:
 - "Project name is required"
 - "Prompt name is required"
 - "Prompt text is required"
+- "Email is required and must be a non-empty string"
+- "Password must be at least 6 characters"
 
 
 ================================================================================
                             NOTES
 ================================================================================
 
-1. All IDs in path parameters must be valid MongoDB ObjectIds (24 hex characters).
+1. **Authentication & Multi-Tenancy:**
+   - Most endpoints require JWT authentication via `Authorization: Bearer <token>` header
+   - Users can only access their own projects, prompts, and versions
+   - userId is automatically set from authenticated user for CREATE operations
+   - Ownership is verified for all GET, UPDATE, and DELETE operations (except public endpoints)
+   - If a resource doesn't exist OR doesn't belong to the user, 404 is returned (for security)
+   - Public endpoints: signup, login, root (/), health check, GET /api/prompts/:promptId/active
+   - The active prompt version endpoint is public and returns the active version for any valid prompt
 
-2. Soft Delete: DELETE operations set isActive to false instead of removing records.
+2. **JWT Tokens:**
+   - Tokens are returned on successful signup and login
+   - Token expiration: 30 days (configurable via JWT_EXPIRES_IN env variable)
+   - Include token in Authorization header for protected endpoints
+   - Invalid or expired tokens return 401 Unauthorized
 
-3. Active Prompt Logic: Only one prompt version can have activePrompt=true per prompt.
+3. **All IDs in path parameters must be valid MongoDB ObjectIds (24 hex characters).**
+
+4. **Soft Delete:** DELETE operations set isActive to false instead of removing records.
+
+5. **Active Prompt Logic:** Only one prompt version can have activePrompt=true per prompt.
    Setting activePrompt=true on a version automatically deactivates other versions.
 
-4. Version Numbering: Prompt versions are automatically numbered (v1, v2, v3, etc.)
+6. **Version Numbering:** Prompt versions are automatically numbered (v1, v2, v3, etc.)
    based on the count of existing versions for that prompt.
 
-5. Default Filters: 
+7. **Default Filters:** 
    - GET operations for lists return only active records (isActive: true) by default.
    - Projects list can include inactive projects with ?includeInactive=true query parameter.
+   - All queries are automatically filtered by authenticated user's userId.
 
-6. Populated Fields: Some GET endpoints populate related documents:
+8. **Populated Fields:** Some GET endpoints populate related documents:
    - Prompt details include project information
    - Prompt version details include prompt and project information
 
-7. Timestamps: All models include createdAt and updatedAt timestamps automatically.
+9. **Timestamps:** All models include createdAt and updatedAt timestamps automatically.
 
-8. Validation:
-   - String fields are trimmed automatically
-   - Required fields must be provided
-   - Field length constraints are enforced
-   - Boolean fields must be valid boolean values
+10. **Validation:**
+    - String fields are trimmed automatically
+    - Required fields must be provided
+    - Field length constraints are enforced
+    - Boolean fields must be valid boolean values
+    - Email must be valid format and unique
+    - Password must be at least 6 characters
 
 ================================================================================
                             END OF DOCUMENTATION

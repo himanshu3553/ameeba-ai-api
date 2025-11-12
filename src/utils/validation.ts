@@ -20,9 +20,10 @@ export const validateProjectId = (req: Request, _res: Response, next: NextFuncti
 };
 
 export const validatePromptId = (req: Request, _res: Response, next: NextFunction): void => {
-  const { id } = req.params;
-  if (id) {
-    validateObjectId(id, 'Prompt ID');
+  // Check both 'id' and 'promptId' params to support different route patterns
+  const promptId = req.params.promptId || req.params.id;
+  if (promptId) {
+    validateObjectId(promptId, 'Prompt ID');
   }
   next();
 };
@@ -36,11 +37,20 @@ export const validatePromptVersionId = (req: Request, _res: Response, next: Next
 };
 
 export const validateProjectExists = async (
-  projectId: string
+  projectId: string,
+  userId?: string
 ): Promise<void> => {
   validateObjectId(projectId, 'Project ID');
   
-  const project = await Project.findById(projectId);
+  const filter: { _id: any; isActive?: boolean; userId?: any } = {
+    _id: projectId,
+  };
+
+  if (userId) {
+    filter.userId = userId;
+  }
+  
+  const project = await Project.findOne(filter);
   
   if (!project) {
     const error: ApiError = new Error('Project not found');
@@ -60,6 +70,8 @@ export const validateRequest = (schema: {
   promptText?: string;
   isActive?: boolean;
   activePrompt?: boolean;
+  email?: string;
+  password?: string;
 }): void => {
   if (schema.name !== undefined) {
     if (typeof schema.name !== 'string' || schema.name.trim().length === 0) {
@@ -92,6 +104,34 @@ export const validateRequest = (schema: {
     const error: ApiError = new Error('activePrompt must be a boolean');
     error.statusCode = 400;
     throw error;
+  }
+
+  if (schema.email !== undefined) {
+    if (typeof schema.email !== 'string' || schema.email.trim().length === 0) {
+      const error: ApiError = new Error('Email is required and must be a non-empty string');
+      error.statusCode = 400;
+      throw error;
+    }
+    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+    if (!emailRegex.test(schema.email)) {
+      const error: ApiError = new Error('Please provide a valid email address');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  if (schema.password !== undefined) {
+    if (typeof schema.password !== 'string') {
+      const error: ApiError = new Error('Password must be a string');
+      error.statusCode = 400;
+      throw error;
+    }
+    const minLength = parseInt(process.env.MIN_PASSWORD_LENGTH || '6', 10);
+    if (schema.password.length < minLength) {
+      const error: ApiError = new Error(`Password must be at least ${minLength} characters`);
+      error.statusCode = 400;
+      throw error;
+    }
   }
 };
 

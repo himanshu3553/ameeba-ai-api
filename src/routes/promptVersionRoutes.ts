@@ -2,12 +2,12 @@ import { Router } from 'express';
 import {
   createPromptVersion,
   getPromptVersionsByPrompt,
-  getActivePromptVersion,
   getPromptVersionById,
   updatePromptVersion,
   deletePromptVersion,
 } from '../controllers/promptVersionController';
 import { validatePromptId, validatePromptVersionId } from '../utils/validation';
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
@@ -15,12 +15,12 @@ const router = Router();
 router.param('promptId', validatePromptId);
 router.param('id', validatePromptVersionId);
 
+// All routes require authentication
+router.use(authenticate);
+
 // Routes for prompt versions under a prompt
 // POST /api/prompts/:promptId/version/create - Create a new prompt version
 router.post('/prompts/:promptId/version/create', createPromptVersion);
-
-// GET /api/prompts/:promptId/active - Get active version for a prompt (isActive: true and activePrompt: true)
-router.get('/prompts/:promptId/active', getActivePromptVersion);
 
 // GET /api/prompts/:promptId/versions - Get all versions for a prompt
 router.get('/prompts/:promptId/versions', getPromptVersionsByPrompt);

@@ -9,15 +9,22 @@ export const createPrompt = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { projectId } = req.params;
     const { name, isActive } = req.body;
 
-    // Validate project exists and is active
-    await validateProjectExists(projectId);
+    // Validate project exists, is active, and belongs to user
+    await validateProjectExists(projectId, req.user.userId);
 
     validateRequest({ name, isActive });
 
     const prompt: IPrompt = new Prompt({
+      userId: req.user.userId,
       projectId,
       name: name.trim(),
       isActive: isActive !== undefined ? isActive : true,
@@ -40,13 +47,20 @@ export const getPromptsByProject = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { projectId } = req.params;
 
-    // Validate project exists
-    await validateProjectExists(projectId);
+    // Validate project exists and belongs to user
+    await validateProjectExists(projectId, req.user.userId);
 
-    // Only return active prompts
-    const filter: { projectId: any; isActive: boolean } = {
+    // Only return active prompts for this user
+    const filter: { userId: any; projectId: any; isActive: boolean } = {
+      userId: req.user.userId,
       projectId,
       isActive: true,
     };
@@ -72,9 +86,18 @@ export const getPromptById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { id } = req.params;
 
-    const prompt = await Prompt.findById(id).populate('projectId', 'name');
+    const prompt = await Prompt.findOne({
+      _id: id,
+      userId: req.user.userId,
+    }).populate('projectId', 'name');
 
     if (!prompt) {
       const error: ApiError = new Error('Prompt not found');
@@ -103,12 +126,22 @@ export const updatePrompt = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { id } = req.params;
     const { name, isActive } = req.body;
 
-    const prompt = await Prompt.findById(id);
+    // First verify the prompt exists and belongs to the user
+    const existingPrompt = await Prompt.findOne({
+      _id: id,
+      userId: req.user.userId,
+    });
 
-    if (!prompt) {
+    if (!existingPrompt) {
       const error: ApiError = new Error('Prompt not found');
       error.statusCode = 404;
       throw error;
@@ -135,11 +168,17 @@ export const updatePrompt = async (
       throw error;
     }
 
-    const updatedPrompt = await Prompt.findByIdAndUpdate(
-      id,
+    const updatedPrompt = await Prompt.findOneAndUpdate(
+      { _id: id, userId: req.user.userId },
       { $set: updateData },
       { new: true, runValidators: true }
     ).populate('projectId', 'name');
+
+    if (!updatedPrompt) {
+      const error: ApiError = new Error('Prompt not found');
+      error.statusCode = 404;
+      throw error;
+    }
 
     res.status(200).json({
       success: true,
@@ -156,10 +195,16 @@ export const deletePrompt = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      const error: ApiError = new Error('User not authenticated');
+      error.statusCode = 401;
+      throw error;
+    }
+
     const { id } = req.params;
 
-    const prompt = await Prompt.findByIdAndUpdate(
-      id,
+    const prompt = await Prompt.findOneAndUpdate(
+      { _id: id, userId: req.user.userId },
       { $set: { isActive: false } },
       { new: true }
     );
