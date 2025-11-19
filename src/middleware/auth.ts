@@ -1,21 +1,31 @@
-import { Request, Response, NextFunction } from 'express';
+/**
+ * Authentication Middleware
+ * Validates JWT tokens and attaches user information to requests
+ */
+
+import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { ApiError } from './errorHandler';
+import { AuthenticatedRequest } from '../types';
+import { HTTP_STATUS, ENV_KEYS } from '../constants';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
 
-// Extend Express Request to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        userId: string;
-        email: string;
-      };
-    }
-  }
+/**
+ * JWT Token payload interface
+ */
+interface JwtPayload {
+  userId: string;
+  email: string;
+  iat?: number;
+  exp?: number;
 }
 
+/**
+ * Authentication middleware
+ * Validates JWT token from Authorization header and attaches user to request
+ */
 export const authenticate = (
-  req: Request,
+  req: AuthenticatedRequest,
   _res: Response,
   next: NextFunction
 ): void => {
@@ -24,35 +34,30 @@ export const authenticate = (
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      const error: ApiError = new Error('Authentication required. Please provide a valid token.');
-      error.statusCode = 401;
+      const error: ApiError = new Error(ERROR_MESSAGES.AUTH_REQUIRED);
+      error.statusCode = HTTP_STATUS.UNAUTHORIZED;
       throw error;
     }
 
-    // Extract token
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    // Extract token (remove 'Bearer ' prefix)
+    const token = authHeader.substring(7);
 
     if (!token) {
-      const error: ApiError = new Error('Authentication required. Please provide a valid token.');
-      error.statusCode = 401;
+      const error: ApiError = new Error(ERROR_MESSAGES.AUTH_REQUIRED);
+      error.statusCode = HTTP_STATUS.UNAUTHORIZED;
       throw error;
     }
 
     // Verify token
-    const jwtSecret = process.env.JWT_SECRET;
+    const jwtSecret = process.env[ENV_KEYS.JWT_SECRET];
     if (!jwtSecret) {
-      const error: ApiError = new Error('JWT secret is not configured');
-      error.statusCode = 500;
+      const error: ApiError = new Error(ERROR_MESSAGES.JWT_SECRET_NOT_CONFIGURED);
+      error.statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR;
       throw error;
     }
 
     try {
-      const decoded = jwt.verify(token, jwtSecret) as {
-        userId: string;
-        email: string;
-        iat?: number;
-        exp?: number;
-      };
+      const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
 
       // Attach user info to request object
       req.user = {
@@ -63,16 +68,16 @@ export const authenticate = (
       next();
     } catch (jwtError) {
       if (jwtError instanceof jwt.TokenExpiredError) {
-        const error: ApiError = new Error('Token has expired. Please login again.');
-        error.statusCode = 401;
+        const error: ApiError = new Error(ERROR_MESSAGES.TOKEN_EXPIRED);
+        error.statusCode = HTTP_STATUS.UNAUTHORIZED;
         throw error;
       } else if (jwtError instanceof jwt.JsonWebTokenError) {
-        const error: ApiError = new Error('Invalid token. Please login again.');
-        error.statusCode = 401;
+        const error: ApiError = new Error(ERROR_MESSAGES.INVALID_TOKEN);
+        error.statusCode = HTTP_STATUS.UNAUTHORIZED;
         throw error;
       } else {
-        const error: ApiError = new Error('Token verification failed');
-        error.statusCode = 401;
+        const error: ApiError = new Error(ERROR_MESSAGES.TOKEN_VERIFICATION_FAILED);
+        error.statusCode = HTTP_STATUS.UNAUTHORIZED;
         throw error;
       }
     }

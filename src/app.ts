@@ -1,3 +1,8 @@
+/**
+ * Application Entry Point
+ * Sets up Express server, routes, middleware, and database connection
+ */
+
 import express, { Application } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -9,54 +14,70 @@ import promptVersionRoutes from './routes/promptVersionRoutes';
 import { getActivePromptVersion } from './controllers/promptVersionController';
 import { validatePromptId } from './utils/validation';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { HTTP_STATUS, ENV_KEYS, DEFAULTS, API_MESSAGES, VERSION } from './constants';
+import { ERROR_MESSAGES } from './constants/errorMessages';
 
 // Load environment variables
 dotenv.config();
 
 const app: Application = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env[ENV_KEYS.PORT] || String(DEFAULTS.PORT), 10);
+const NODE_ENV = process.env[ENV_KEYS.NODE_ENV] || 'development';
 
-// Middleware
+// ==================== Middleware ====================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
-app.use('/api/auth', authRoutes); // Authentication routes (signup, login, getUserDetails)
+// ==================== Routes ====================
+// Authentication routes
+app.use('/api/auth', authRoutes);
 
 // Public route (no authentication required) - MUST be before other /api routes
 app.get('/api/prompts/:promptId/active', validatePromptId, getActivePromptVersion);
 
-app.use('/api/project', projectRoutes); // All project operations
+// Protected routes
+app.use('/api/project', projectRoutes);
 app.use('/api', promptRoutes);
 app.use('/api', promptVersionRoutes);
 
-// Root endpoint
+// ==================== Health & Status Endpoints ====================
+/**
+ * Root endpoint - Server status
+ * GET /
+ */
 app.get('/', (_req, res) => {
-  res.status(200).json({
+  res.status(HTTP_STATUS.OK).json({
     success: true,
-    message: 'Server is properly deployed and running',
-    status: 'operational',
+    message: API_MESSAGES.SERVER_RUNNING,
+    status: API_MESSAGES.OPERATIONAL,
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0',
+    environment: NODE_ENV,
+    version: VERSION.API,
   });
 });
 
-// Health check endpoint
+/**
+ * Health check endpoint
+ * GET /health
+ */
 app.get('/health', (_req, res) => {
-  res.status(200).json({
+  res.status(HTTP_STATUS.OK).json({
     success: true,
-    message: 'API is running',
+    message: API_MESSAGES.API_RUNNING,
     timestamp: new Date().toISOString(),
   });
 });
 
-// Error handling
+// ==================== Error Handling ====================
+// 404 handler must be before error handler
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Start server
+// ==================== Server Initialization ====================
+/**
+ * Start the Express server and connect to database
+ */
 const startServer = async (): Promise<void> => {
   try {
     // Connect to MongoDB
@@ -65,28 +86,26 @@ const startServer = async (): Promise<void> => {
     // Start Express server
     const server = app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Environment: ${NODE_ENV}`);
     });
 
     // Handle server errors
     server.on('error', (error: NodeJS.ErrnoException) => {
       if (error.code === 'EADDRINUSE') {
-        console.error(`Port ${PORT} is already in use. Please either:`);
-        console.error(`  1. Stop the process using port ${PORT}`);
-        console.error(`  2. Set a different PORT in your .env file`);
-        console.error(`\nTo find and kill the process: lsof -ti:${PORT} | xargs kill -9`);
+        console.error(ERROR_MESSAGES.PORT_ALREADY_IN_USE(PORT));
+        console.error(ERROR_MESSAGES.STOP_PROCESS_OR_CHANGE_PORT(PORT));
       } else {
-        console.error('Server error:', error);
+        console.error(ERROR_MESSAGES.SERVER_ERROR, error);
       }
       process.exit(1);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error(ERROR_MESSAGES.FAILED_TO_START_SERVER, error);
     process.exit(1);
   }
 };
 
-// Handle graceful shutdown
+// ==================== Graceful Shutdown ====================
 process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
   process.exit(0);
@@ -97,6 +116,7 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+// Start the server
 startServer();
 
 export default app;

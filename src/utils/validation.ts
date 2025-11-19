@@ -1,16 +1,31 @@
+/**
+ * Validation Utilities
+ * Provides validation functions for request data and IDs
+ */
+
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import { ApiError } from '../middleware/errorHandler';
 import Project from '../models/Project';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
+import { VALIDATION, HTTP_STATUS } from '../constants';
 
+/**
+ * Validate MongoDB ObjectId format
+ * @param id - ID to validate
+ * @param fieldName - Name of the field for error message
+ */
 export const validateObjectId = (id: string, fieldName: string = 'ID'): void => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     const error: ApiError = new Error(`Invalid ${fieldName} format`);
-    error.statusCode = 400;
+    error.statusCode = HTTP_STATUS.BAD_REQUEST;
     throw error;
   }
 };
 
+/**
+ * Middleware to validate project ID parameter
+ */
 export const validateProjectId = (req: Request, _res: Response, next: NextFunction): void => {
   const { projectId } = req.params;
   if (projectId) {
@@ -19,8 +34,11 @@ export const validateProjectId = (req: Request, _res: Response, next: NextFuncti
   next();
 };
 
+/**
+ * Middleware to validate prompt ID parameter
+ * Supports both 'id' and 'promptId' params for different route patterns
+ */
 export const validatePromptId = (req: Request, _res: Response, next: NextFunction): void => {
-  // Check both 'id' and 'promptId' params to support different route patterns
   const promptId = req.params.promptId || req.params.id;
   if (promptId) {
     validateObjectId(promptId, 'Prompt ID');
@@ -28,6 +46,9 @@ export const validatePromptId = (req: Request, _res: Response, next: NextFunctio
   next();
 };
 
+/**
+ * Middleware to validate prompt version ID parameter
+ */
 export const validatePromptVersionId = (req: Request, _res: Response, next: NextFunction): void => {
   const { id } = req.params;
   if (id) {
@@ -36,6 +57,11 @@ export const validatePromptVersionId = (req: Request, _res: Response, next: Next
   next();
 };
 
+/**
+ * Validate that a project exists, is active, and optionally belongs to user
+ * @param projectId - Project ID to validate
+ * @param userId - User ID (optional, for ownership verification)
+ */
 export const validateProjectExists = async (
   projectId: string,
   userId?: string
@@ -53,83 +79,98 @@ export const validateProjectExists = async (
   const project = await Project.findOne(filter);
   
   if (!project) {
-    const error: ApiError = new Error('Project not found');
-    error.statusCode = 404;
+    const error: ApiError = new Error(ERROR_MESSAGES.PROJECT_NOT_FOUND);
+    error.statusCode = HTTP_STATUS.NOT_FOUND;
     throw error;
   }
   
   if (!project.isActive) {
-    const error: ApiError = new Error('Project has been deleted');
-    error.statusCode = 404;
+    const error: ApiError = new Error(ERROR_MESSAGES.PROJECT_DELETED);
+    error.statusCode = HTTP_STATUS.NOT_FOUND;
     throw error;
   }
 };
 
-export const validateRequest = (schema: {
+/**
+ * Validation schema interface
+ */
+export interface ValidationSchema {
   name?: string;
   promptText?: string;
   isActive?: boolean;
   activePrompt?: boolean;
   email?: string;
   password?: string;
-}): void => {
+}
+
+/**
+ * Validate request body fields
+ * @param schema - Object containing fields to validate
+ */
+export const validateRequest = (schema: ValidationSchema): void => {
+  // Validate name field
   if (schema.name !== undefined) {
     if (typeof schema.name !== 'string' || schema.name.trim().length === 0) {
-      const error: ApiError = new Error('Name is required and must be a non-empty string');
-      error.statusCode = 400;
+      const error: ApiError = new Error(ERROR_MESSAGES.NAME_REQUIRED);
+      error.statusCode = HTTP_STATUS.BAD_REQUEST;
       throw error;
     }
-    if (schema.name.length > 200) {
-      const error: ApiError = new Error('Name must not exceed 200 characters');
-      error.statusCode = 400;
+    if (schema.name.length > VALIDATION.NAME_MAX_LENGTH) {
+      const error: ApiError = new Error(ERROR_MESSAGES.NAME_TOO_LONG);
+      error.statusCode = HTTP_STATUS.BAD_REQUEST;
       throw error;
     }
   }
 
+  // Validate prompt text field
   if (schema.promptText !== undefined) {
     if (typeof schema.promptText !== 'string' || schema.promptText.trim().length === 0) {
-      const error: ApiError = new Error('Prompt text is required and must be a non-empty string');
-      error.statusCode = 400;
+      const error: ApiError = new Error(ERROR_MESSAGES.PROMPT_TEXT_REQUIRED);
+      error.statusCode = HTTP_STATUS.BAD_REQUEST;
       throw error;
     }
   }
 
+  // Validate isActive field
   if (schema.isActive !== undefined && typeof schema.isActive !== 'boolean') {
-    const error: ApiError = new Error('isActive must be a boolean');
-    error.statusCode = 400;
+    const error: ApiError = new Error(ERROR_MESSAGES.IS_ACTIVE_MUST_BE_BOOLEAN);
+    error.statusCode = HTTP_STATUS.BAD_REQUEST;
     throw error;
   }
 
+  // Validate activePrompt field
   if (schema.activePrompt !== undefined && typeof schema.activePrompt !== 'boolean') {
-    const error: ApiError = new Error('activePrompt must be a boolean');
-    error.statusCode = 400;
+    const error: ApiError = new Error(ERROR_MESSAGES.ACTIVE_PROMPT_MUST_BE_BOOLEAN);
+    error.statusCode = HTTP_STATUS.BAD_REQUEST;
     throw error;
   }
 
+  // Validate email field
   if (schema.email !== undefined) {
     if (typeof schema.email !== 'string' || schema.email.trim().length === 0) {
-      const error: ApiError = new Error('Email is required and must be a non-empty string');
-      error.statusCode = 400;
+      const error: ApiError = new Error(ERROR_MESSAGES.EMAIL_REQUIRED);
+      error.statusCode = HTTP_STATUS.BAD_REQUEST;
       throw error;
     }
-    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
-    if (!emailRegex.test(schema.email)) {
-      const error: ApiError = new Error('Please provide a valid email address');
-      error.statusCode = 400;
+    if (!VALIDATION.EMAIL_REGEX.test(schema.email)) {
+      const error: ApiError = new Error(ERROR_MESSAGES.EMAIL_INVALID);
+      error.statusCode = HTTP_STATUS.BAD_REQUEST;
       throw error;
     }
   }
 
+  // Validate password field
   if (schema.password !== undefined) {
     if (typeof schema.password !== 'string') {
-      const error: ApiError = new Error('Password must be a string');
-      error.statusCode = 400;
+      const error: ApiError = new Error(ERROR_MESSAGES.PASSWORD_REQUIRED);
+      error.statusCode = HTTP_STATUS.BAD_REQUEST;
       throw error;
     }
-    const minLength = parseInt(process.env.MIN_PASSWORD_LENGTH || '6', 10);
-    if (schema.password.length < minLength) {
-      const error: ApiError = new Error(`Password must be at least ${minLength} characters`);
-      error.statusCode = 400;
+    if (schema.password.length < VALIDATION.PASSWORD_MIN_LENGTH) {
+      const error: ApiError = new Error(
+        ERROR_MESSAGES.PASSWORD_TOO_SHORT(VALIDATION.PASSWORD_MIN_LENGTH)
+      );
+      error.statusCode = HTTP_STATUS.BAD_REQUEST;
       throw error;
     }
   }

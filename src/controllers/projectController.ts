@@ -1,212 +1,160 @@
-import { Request, Response, NextFunction } from 'express';
-import Project, { IProject } from '../models/Project';
+/**
+ * Project Controller
+ * Handles HTTP requests for project endpoints
+ */
+
+import { Response, NextFunction } from 'express';
 import { ApiError } from '../middleware/errorHandler';
 import { validateRequest } from '../utils/validation';
+import { sendCreated, sendSuccess, sendSuccessWithCount, sendSuccessWithMessage } from '../utils/responseHelpers';
+import * as projectService from '../services/projectService';
+import { AuthenticatedRequest, ProjectRequestBody, UpdateProjectRequestBody } from '../types';
+import { HTTP_STATUS } from '../constants';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
 
+/**
+ * Create a new project
+ * POST /api/project/create
+ */
 export const createProject = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     if (!req.user) {
-      const error: ApiError = new Error('User not authenticated');
-      error.statusCode = 401;
+      const error: ApiError = new Error(ERROR_MESSAGES.USER_NOT_AUTHENTICATED);
+      error.statusCode = HTTP_STATUS.UNAUTHORIZED;
       throw error;
     }
 
-    const { name, isActive } = req.body;
+    const { name, isActive } = req.body as ProjectRequestBody;
 
+    // Validate request data
     validateRequest({ name, isActive });
 
-    const project: IProject = new Project({
-      userId: req.user.userId,
-      name: name.trim(),
-      isActive: isActive !== undefined ? isActive : true,
-    });
+    // Create project
+    const project = await projectService.createProject(req.user.userId, { name, isActive });
 
-    const savedProject = await project.save();
-
-    res.status(201).json({
-      success: true,
-      data: savedProject,
-    });
+    // Return created project
+    sendCreated(res, project);
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * Get all projects for the authenticated user
+ * GET /api/project/getProjects
+ */
 export const getProjects = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     if (!req.user) {
-      const error: ApiError = new Error('User not authenticated');
-      error.statusCode = 401;
+      const error: ApiError = new Error(ERROR_MESSAGES.USER_NOT_AUTHENTICATED);
+      error.statusCode = HTTP_STATUS.UNAUTHORIZED;
       throw error;
     }
 
     const { includeInactive } = req.query;
-    const filter: { userId: any; isActive?: boolean } = {
-      userId: req.user.userId,
-    };
+    const includeInactiveFlag = includeInactive === 'true';
 
-    // Only include active projects by default
-    if (includeInactive !== 'true') {
-      filter.isActive = true;
-    }
+    // Get projects
+    const projects = await projectService.getProjects(req.user.userId, includeInactiveFlag);
 
-    const projects = await Project.find(filter).sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      count: projects.length,
-      data: projects,
-    });
+    // Return projects with count
+    sendSuccessWithCount(res, projects, projects.length);
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * Get a project by ID
+ * GET /api/project/:id
+ */
 export const getProjectById = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     if (!req.user) {
-      const error: ApiError = new Error('User not authenticated');
-      error.statusCode = 401;
+      const error: ApiError = new Error(ERROR_MESSAGES.USER_NOT_AUTHENTICATED);
+      error.statusCode = HTTP_STATUS.UNAUTHORIZED;
       throw error;
     }
 
     const { id } = req.params;
 
-    const project = await Project.findOne({
-      _id: id,
-      userId: req.user.userId,
-    });
+    // Get project
+    const project = await projectService.getProjectById(id, req.user.userId);
 
-    if (!project) {
-      const error: ApiError = new Error('Project not found');
-      error.statusCode = 404;
-      throw error;
-    }
-
-    if (!project.isActive) {
-      const error: ApiError = new Error('Project has been deleted');
-      error.statusCode = 404;
-      throw error;
-    }
-
-    res.status(200).json({
-      success: true,
-      data: project,
-    });
+    // Return project
+    sendSuccess(res, project);
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * Update a project
+ * PUT /api/project/:id
+ */
 export const updateProject = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     if (!req.user) {
-      const error: ApiError = new Error('User not authenticated');
-      error.statusCode = 401;
+      const error: ApiError = new Error(ERROR_MESSAGES.USER_NOT_AUTHENTICATED);
+      error.statusCode = HTTP_STATUS.UNAUTHORIZED;
       throw error;
     }
 
     const { id } = req.params;
-    const { name, isActive } = req.body;
+    const { name, isActive } = req.body as UpdateProjectRequestBody;
 
-    // First verify the project exists and belongs to the user
-    const existingProject = await Project.findOne({
-      _id: id,
-      userId: req.user.userId,
-    });
+    // Validate update data
+    validateRequest({ name, isActive });
 
-    if (!existingProject) {
-      const error: ApiError = new Error('Project not found');
-      error.statusCode = 404;
-      throw error;
-    }
+    // Update project
+    const project = await projectService.updateProject(id, req.user.userId, { name, isActive });
 
-    const updateData: { name?: string; isActive?: boolean } = {};
-
-    if (name !== undefined) {
-      validateRequest({ name });
-      updateData.name = name.trim();
-    }
-
-    if (isActive !== undefined) {
-      validateRequest({ isActive });
-      updateData.isActive = isActive;
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      const error: ApiError = new Error('No valid fields to update');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const project = await Project.findOneAndUpdate(
-      { _id: id, userId: req.user.userId },
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
-
-    if (!project) {
-      const error: ApiError = new Error('Project not found');
-      error.statusCode = 404;
-      throw error;
-    }
-
-    res.status(200).json({
-      success: true,
-      data: project,
-    });
+    // Return updated project
+    sendSuccess(res, project);
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * Soft delete a project
+ * DELETE /api/project/:id
+ */
 export const deleteProject = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
     if (!req.user) {
-      const error: ApiError = new Error('User not authenticated');
-      error.statusCode = 401;
+      const error: ApiError = new Error(ERROR_MESSAGES.USER_NOT_AUTHENTICATED);
+      error.statusCode = HTTP_STATUS.UNAUTHORIZED;
       throw error;
     }
 
     const { id } = req.params;
 
-    const project = await Project.findOneAndUpdate(
-      { _id: id, userId: req.user.userId },
-      { $set: { isActive: false } },
-      { new: true }
-    );
+    // Delete project
+    const project = await projectService.deleteProject(id, req.user.userId);
 
-    if (!project) {
-      const error: ApiError = new Error('Project not found');
-      error.statusCode = 404;
-      throw error;
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Project deleted successfully',
-      data: project,
-    });
+    // Return deleted project with message
+    sendSuccessWithMessage(res, project, 'Project deleted successfully');
   } catch (error) {
     next(error);
   }

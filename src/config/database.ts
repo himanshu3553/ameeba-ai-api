@@ -1,12 +1,23 @@
-import mongoose from 'mongoose';
+/**
+ * Database Configuration
+ * Handles MongoDB connection and disconnection
+ */
 
+import mongoose from 'mongoose';
+import { ENV_KEYS, DATABASE } from '../constants';
+import { ERROR_MESSAGES } from '../constants/errorMessages';
+
+/**
+ * Connect to MongoDB database
+ * Removes database name from URI and uses explicit dbName option
+ */
 const connectDB = async (): Promise<void> => {
   try {
-    const mongoURI = process.env.MONGODB_URI;
-    const databaseName = process.env.DATABASE_NAME || 'ameeba_database';
+    const mongoURI = process.env[ENV_KEYS.MONGODB_URI];
+    const databaseName = process.env[ENV_KEYS.DATABASE_NAME] || DATABASE.DEFAULT_NAME;
 
     if (!mongoURI) {
-      throw new Error('MONGODB_URI is not defined in environment variables');
+      throw new Error(ERROR_MESSAGES.MONGODB_URI_NOT_DEFINED);
     }
 
     // Remove database name from URI if present to avoid conflicts
@@ -28,8 +39,8 @@ const connectDB = async (): Promise<void> => {
     // Connect with explicit database name from environment variable
     const conn = await mongoose.connect(connectionURI, {
       dbName: databaseName, // Database name from DATABASE_NAME env variable
-      retryWrites: true,
-      w: 'majority',
+      retryWrites: DATABASE.RETRY_WRITES,
+      w: DATABASE.WRITE_CONCERN,
     });
 
     const dbName = conn.connection.db?.databaseName || databaseName;
@@ -41,6 +52,9 @@ const connectDB = async (): Promise<void> => {
   }
 };
 
+/**
+ * Disconnect from MongoDB database
+ */
 const disconnectDB = async (): Promise<void> => {
   try {
     await mongoose.disconnect();
